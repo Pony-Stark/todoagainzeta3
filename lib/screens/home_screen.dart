@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import "package:flutter/material.dart";
 import 'package:provider/provider.dart';
 import "routing.dart" as routing;
@@ -13,10 +14,34 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  int selectedListID = defaultListID;
+
+  List<Widget> createSection(Section section, TodosData todosData) {
+    List<Task> tasks = todosData.fetchSection(
+        selectedListID: selectedListID, section: section);
+    if (tasks.isEmpty) return [];
+    List<Widget> sectionWidgets = [];
+    sectionWidgets.add(Text(describeEnum(section)));
+    sectionWidgets.add(SizedBox(height: 8));
+    for (var task in tasks) {
+      sectionWidgets.add(ActivityCard(
+        task: task,
+        header: task.taskName,
+        date: task.deadlineDate == null ? "" : task.deadlineDate.toString(),
+        list: task.taskListID.toString(),
+        onTap: () {
+          Navigator.pushNamed(context, routing.newTaskScreenID,
+              arguments: task);
+        },
+      ));
+    }
+    return sectionWidgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TodosData>(
-      builder: (context, sd, x) {
+      builder: (context, todosData, x) {
         return Scaffold(
           floatingActionButton: FloatingActionButton(
             //onPressed: (){},
@@ -26,27 +51,37 @@ class _MyHomePageState extends State<MyHomePage> {
             },
           ),
           appBar: AppBar(
-            title: Text("Todos"),
+            title: DropdownButton<int>(
+              isExpanded: true,
+              //items: dropdownItemCreator(["Default"]),
+              items: () {
+                var activeLists = todosData.activeLists;
+                List<DropdownMenuItem<int>> menuItems = [];
+                for (var taskList in activeLists) {
+                  menuItems.add(DropdownMenuItem<int>(
+                    child: Text(taskList.listName),
+                    value: taskList.listID,
+                  ));
+                }
+                return menuItems;
+              }(),
+              value: selectedListID,
+              onChanged: (value) {
+                selectedListID = value ?? selectedListID;
+                setState(() {});
+              },
+            ),
           ),
           //body: function(s)
           body: () {
             {
-              if (sd.isDataLoaded) {
-                var data = sd.activeTasks;
+              if (todosData.isDataLoaded) {
+                //var data = todosData.activeTasks;
                 List<Widget> children = [];
-                for (var task in data) {
-                  children.add(ActivityCard(
-                    task: task,
-                    header: task.taskName,
-                    date: task.deadlineDate == null
-                        ? ""
-                        : task.deadlineDate.toString(),
-                    list: task.taskListID.toString(),
-                    onTap: () {
-                      Navigator.pushNamed(context, routing.newTaskScreenID,
-                          arguments: task);
-                    },
-                  ));
+                for (var section in Section.values) {
+                  List<Widget> sectionWidgets =
+                      createSection(section, todosData);
+                  children = [...children, ...sectionWidgets];
                 }
                 return ListView(
                   padding: const EdgeInsets.all(5),

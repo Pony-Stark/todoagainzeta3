@@ -3,13 +3,13 @@ import 'task.dart';
 import 'sqlite.dart';
 
 class AggregatedTasks {
-  TaskList taskList;
-  List<Task> overdue = [],
-      today = [],
-      thisWeek = [],
-      thisMonth = [],
-      noDeadLine = [];
-  AggregatedTasks({required this.taskList});
+  List<Task> overdue = [], thisMonth = [], later = [];
+}
+
+enum Section {
+  overdue,
+  thisMonth,
+  later,
 }
 
 class TodosData extends ChangeNotifier {
@@ -20,13 +20,59 @@ class TodosData extends ChangeNotifier {
   }
   List<TaskList> activeLists = [];
   Map<int, AggregatedTasks> aggregatedTasksMap = {};
+  DateTime now = DateTime.now();
+  DateTime today = DateTime.now();
+  DateTime nextMonth = DateTime.now();
+
   void initTodosData() async {
+    now = DateTime.now();
+    today = DateTime(now.year, now.month, now.day);
+    nextMonth = DateTime(now.year, now.month, now.day + 30);
+
     activeTasks = await SqliteDB.getAllPendingTasks();
     activeLists = await SqliteDB.getAllActiveLists();
     for (var taskList in activeLists) {
-      aggregatedTasksMap[taskList.listID] = AggregatedTasks(taskList: taskList);
+      aggregatedTasksMap[taskList.listID] = AggregatedTasks();
     }
-    activeTasks.sort();
+    activeTasks.sort((Task a, Task b) {
+      if (a.deadlineDate == null) return 1;
+      if (b.deadlineDate == null) return -1;
+      if (a.deadlineDate!.isAfter(b.deadlineDate!)) return 1;
+      if (b.deadlineDate!.isAfter(a.deadlineDate!)) return -1;
+      //both a and b are on same dates
+      if (a.deadlineTime == null) return 1;
+      if (b.deadlineTime == null) return -1;
+      if (intFromTimeOfDay(a.deadlineTime!) > intFromTimeOfDay(b.deadlineTime!))
+        return 1;
+      if (intFromTimeOfDay(a.deadlineTime!) < intFromTimeOfDay(b.deadlineTime!))
+        return -1;
+      return 0;
+    });
+    for (var task in activeTasks) {
+      AggregatedTasks correctAggregatedTasks =
+          aggregatedTasksMap[task.taskListID]!;
+      if (task.deadlineDate == null)
+        correctAggregatedTasks.later.add(task);
+      else if (task.deadlineDate!.isAfter(nextMonth))
+        correctAggregatedTasks.later.add(task);
+      else {
+        DateTime exactDeadline = task.deadlineDate!;
+        if (task.deadlineTime == null)
+          exactDeadline = DateTime(
+              exactDeadline.year, exactDeadline.month, exactDeadline.day + 1);
+        else
+          exactDeadline = DateTime(
+              exactDeadline.year,
+              exactDeadline.month,
+              exactDeadline.day + 1,
+              task.deadlineTime!.hour,
+              task.deadlineTime!.minute);
+        if (now.isAfter(exactDeadline))
+          correctAggregatedTasks.overdue.add(task);
+        else
+          correctAggregatedTasks.thisMonth.add(task);
+      }
+    }
     isDataLoaded = true;
     notifyListeners();
   }
@@ -108,6 +154,21 @@ class TodosData extends ChangeNotifier {
       taskList.listID = id;
       activeLists.add(taskList);
       notifyListeners();
+    }
+  }
+
+  List<Task> fetchSection(
+      {required int selectedListID, required Section section}) {
+    AggregatedTasks correctAggregatedTasks =
+        aggregatedTasksMap[selectedListID]!;
+    if (section == Section.overdue) return correctAggregatedTasks.overdue;
+    if (section == Section.thisMonth) return correctAggregatedTasks.thisMonth;
+    if (section == Section.later)
+      return correctAggregatedTasks.later;
+    //TODO::throw error if you reach the following line
+    else {
+      print("we are in invalid state and throw some error");
+      return [];
     }
   }
 }
