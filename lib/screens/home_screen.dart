@@ -1,7 +1,8 @@
+import 'package:flutter/foundation.dart';
 import "package:flutter/material.dart";
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import "routing.dart" as routing;
-import "../sqlite.dart";
 import "../task.dart";
 import "../todos_data.dart";
 
@@ -13,10 +14,33 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  dynamic selectedList = allListName;
+
+  List<Widget> createSection(Section section, TodosData todosData) {
+    var sectionTasks =
+        todosData.getSection(section: section, selectedListID: selectedList);
+    if (sectionTasks.length == 0) {
+      return <Widget>[];
+    }
+    List<Widget> widgets = [
+      Text(
+        describeEnum(section),
+      ),
+      SizedBox(height: 5),
+    ];
+    for (var task in sectionTasks) {
+      widgets.add(ActivityCard(
+        task: task,
+        listName: todosData.activeLists[task.taskListID]!.listName,
+      ));
+    }
+    return widgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TodosData>(
-      builder: (context, sd, x) {
+      builder: (context, todosData, x) {
         return Scaffold(
           floatingActionButton: FloatingActionButton(
             //onPressed: (){},
@@ -26,27 +50,50 @@ class _MyHomePageState extends State<MyHomePage> {
             },
           ),
           appBar: AppBar(
-            title: Text("Todos"),
+            title: todosData.isDataLoaded
+                ? DropdownButton<dynamic>(
+                    isExpanded: true,
+                    items: () {
+                      var activeLists = todosData.activeLists;
+                      List<DropdownMenuItem<dynamic>> menuItems = [];
+                      menuItems.add(DropdownMenuItem<String>(
+                        child: Text(allListName),
+                        value: allListName,
+                      ));
+                      for (var taskList in activeLists.values) {
+                        menuItems.add(DropdownMenuItem<int>(
+                          child: Text(taskList.listName),
+                          value: taskList.listID,
+                        ));
+                      }
+                      return menuItems;
+                    }(),
+                    value: selectedList,
+                    onChanged: (value) {
+                      selectedList = value ?? selectedList;
+                      setState(() {});
+                    },
+                  )
+                : Text("Loading"),
           ),
           //body: function(s)
           body: () {
             {
-              if (sd.isDataLoaded) {
-                var data = sd.activeTasks;
+              if (todosData.isDataLoaded) {
+                //var data = todosData.activeTasks;
                 List<Widget> children = [];
-                for (var task in data) {
+                /*for (var task in data) {
                   children.add(ActivityCard(
                     task: task,
-                    header: task.taskName,
-                    date: task.deadlineDate == null
-                        ? ""
-                        : task.deadlineDate.toString(),
-                    list: task.taskListID.toString(),
-                    onTap: () {
-                      Navigator.pushNamed(context, routing.newTaskScreenID,
-                          arguments: task);
-                    },
+                    listName: todosData.activeLists[task.taskListID]!.listName,
                   ));
+                }*/
+                for (var section in Section.values) {
+                  var sectionWidgets = createSection(section, todosData);
+                  children = [
+                    ...children,
+                    ...sectionWidgets,
+                  ];
                 }
                 return ListView(
                   padding: const EdgeInsets.all(5),
@@ -66,22 +113,36 @@ class _MyHomePageState extends State<MyHomePage> {
 
 class ActivityCard extends StatelessWidget {
   const ActivityCard({
-    required this.header,
-    required this.date,
-    required this.list,
-    required this.onTap,
     required this.task,
+    required this.listName,
     Key? key,
   }) : super(key: key);
 
-  final String header, date, list;
-  final void Function() onTap;
   final Task task;
+  final String listName;
+
+  String deadlineString(BuildContext context) {
+    String deadlineDate = "";
+    if (task.deadlineDate == null) {
+      return "";
+    } else {
+      deadlineDate = DateFormat('EEEE, d MMM, yyyy').format(task.deadlineDate!);
+      String deadlineTime = "";
+      if (task.deadlineTime != null) {
+        deadlineTime = task.deadlineTime!.format(context);
+        return deadlineDate + ", " + deadlineTime;
+      } else {
+        return deadlineDate;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        Navigator.pushNamed(context, routing.newTaskScreenID, arguments: task);
+      },
       child: Card(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10.0),
@@ -110,7 +171,7 @@ class ActivityCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    header,
+                    task.taskName,
                     style: TextStyle(
                       //color, fontsize, fontweight
                       color: Colors.orange,
@@ -119,8 +180,12 @@ class ActivityCard extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: 5),
-                  Text(date),
-                  Text(list),
+                  ...(task.deadlineDate == null
+                      ? []
+                      : [
+                          Text(deadlineString(context)),
+                        ]),
+                  Text(listName),
                 ],
               ),
             ],

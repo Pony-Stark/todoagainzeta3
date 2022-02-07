@@ -346,7 +346,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                       items: () {
                         var activeLists = todosData.activeLists;
                         List<DropdownMenuItem<int>> menuItems = [];
-                        for (var taskList in activeLists) {
+                        for (var taskList in activeLists.values) {
                           menuItems.add(DropdownMenuItem<int>(
                             child: Text(taskList.listName),
                             value: taskList.listID,

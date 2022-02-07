@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 const String noRepeat = "No Repeat";
 const String defaultListName = "Default";
 const int defaultListID = 1;
+const String allListName = 'All Lists';
 
 enum RepeatCycle {
   onceADay,
