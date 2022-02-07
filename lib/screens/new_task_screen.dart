@@ -39,7 +39,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    task = widget.task ?? task;
+    task = widget.task != null ? Task.fromTask(widget.task) : task;
     dateController.text = task.deadlineDate == null
         ? ""
         : DateFormat('EEEE, d MMM, yyyy').format(task.deadlineDate!);
@@ -111,7 +111,11 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
         child: Icon(
           Icons.check,
           size: 35,
+          color: task.taskName == ""
+              ? Colors.grey
+              : Theme.of(context).colorScheme.onSecondary,
         ),
+        backgroundColor: task.taskName == "" ? Colors.white : Colors.white,
         onPressed: () {
           if (widget.task == null)
             saveNewTask();
@@ -138,10 +142,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
             //Task details
             Text(
               "What is to be done?",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
+              style: Theme.of(context).textTheme.subtitle1,
             ),
             SizedBox(height: 10),
             Row(
@@ -149,14 +150,18 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 SizedBox(width: 10),
                 Flexible(
                   child: TextField(
+                    style: Theme.of(context).textTheme.subtitle2,
                     decoration: const InputDecoration(
                       contentPadding: EdgeInsets.fromLTRB(0, 10, 0, 5),
                       isDense: true,
                       hintText: "Enter Task Here",
+                      hintStyle: TextStyle(
+                          color: Colors.white54, fontWeight: FontWeight.w400),
                     ),
                     controller: nameController,
                     onChanged: (String? value) {
                       task.taskName = value == null ? task.taskName : value;
+                      setState(() {});
                     },
                   ),
                 ),
@@ -170,10 +175,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
             //Date Time Input
             Text(
               "Due Date",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
+              style: Theme.of(context).textTheme.subtitle1,
             ),
             SizedBox(height: 10),
             EditableFieldWithCancelButton(
@@ -219,6 +221,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 children: [
                   Text(
                     "Notifications",
+                    style: Theme.of(context).textTheme.subtitle1,
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -241,20 +244,20 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
             const SizedBox(height: 40),
             Text(
               "Repeat",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
+              style: Theme.of(context).textTheme.subtitle1,
             ),
             Row(
               children: [
                 SizedBox(width: 10),
                 DropdownButton<dynamic>(
+                  dropdownColor: Theme.of(context).colorScheme.onSecondary,
+                  iconEnabledColor: Theme.of(context).colorScheme.secondary,
                   items: () {
                     List<DropdownMenuItem<dynamic>> items = [];
-                    items.add(const DropdownMenuItem<dynamic>(
+                    items.add(DropdownMenuItem<dynamic>(
                       child: Text(
                         noRepeat,
+                        style: Theme.of(context).textTheme.subtitle2,
                       ),
                       value: noRepeat,
                     ));
@@ -262,6 +265,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                       items.add(DropdownMenuItem<dynamic>(
                         child: Text(
                           repeatCycleToUIString(value),
+                          style: Theme.of(context).textTheme.subtitle2,
                         ),
                         value: value,
                       ));
@@ -290,6 +294,8 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 Row(children: [
                   SizedBox(width: 10),
                   DropdownButton<int>(
+                    dropdownColor: Theme.of(context).colorScheme.onSecondary,
+                    iconEnabledColor: Theme.of(context).colorScheme.secondary,
                     items: [2, 3, 4, 5, 6, 7, 8, 9, 10]
                         .map((int t) => DropdownMenuItem<int>(
                               child: Text(t.toString()),
@@ -306,9 +312,14 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                   ),
                   SizedBox(width: 10),
                   DropdownButton<Tenure>(
+                    dropdownColor: Theme.of(context).colorScheme.onSecondary,
+                    iconEnabledColor: Theme.of(context).colorScheme.secondary,
                     items: Tenure.values
                         .map((Tenure t) => DropdownMenuItem<Tenure>(
-                              child: Text(describeEnum(t)),
+                              child: Text(
+                                describeEnum(t),
+                                style: Theme.of(context).textTheme.subtitle2,
+                              ),
                               value: t,
                             ))
                         .toList(),
@@ -328,10 +339,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
             const SizedBox(height: 40),
             Text(
               "Select a List",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
+              style: Theme.of(context).textTheme.subtitle1,
             ),
             SizedBox(height: 5),
             Row(
@@ -341,14 +349,18 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 Consumer<TodosData>(builder: (context, todosData, child) {
                   return Expanded(
                     child: DropdownButton<int>(
+                      dropdownColor: Theme.of(context).colorScheme.onSecondary,
+                      iconEnabledColor: Theme.of(context).colorScheme.secondary,
                       isExpanded: true,
-                      //items: dropdownItemCreator(["Default"]),
                       items: () {
                         var activeLists = todosData.activeLists;
                         List<DropdownMenuItem<int>> menuItems = [];
                         for (var taskList in activeLists.values) {
                           menuItems.add(DropdownMenuItem<int>(
-                            child: Text(taskList.listName),
+                            child: Text(
+                              taskList.listName,
+                              style: Theme.of(context).textTheme.subtitle2,
+                            ),
                             value: taskList.listID,
                           ));
                         }
@@ -430,8 +442,11 @@ class EditableFieldWithCancelButton extends StatelessWidget {
         const SizedBox(width: 5),
         Flexible(
           child: TextField(
+            style: Theme.of(context).textTheme.subtitle2,
             controller: textController,
             decoration: InputDecoration(
+              hintStyle:
+                  TextStyle(color: Colors.white54, fontWeight: FontWeight.w400),
               contentPadding: EdgeInsets.fromLTRB(0, 10, 0, 5),
               isDense: true,
               hintText: hintText,
@@ -481,7 +496,7 @@ class CustomIconButton extends StatelessWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         minimumSize: Size.zero,
       ),
-      child: Icon(iconData),
+      child: Icon(iconData, color: Theme.of(context).colorScheme.secondary),
       onPressed: onPressed,
     );
   }

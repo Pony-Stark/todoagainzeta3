@@ -24,7 +24,8 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     List<Widget> widgets = [
       Text(
-        describeEnum(section),
+        sectionToUIString(section),
+        style: Theme.of(context).textTheme.subtitle1,
       ),
       SizedBox(height: 5),
     ];
@@ -34,6 +35,7 @@ class _MyHomePageState extends State<MyHomePage> {
         listName: todosData.activeLists[task.taskListID]!.listName,
       ));
     }
+    widgets.add(SizedBox(height: 20));
     return widgets;
   }
 
@@ -50,19 +52,29 @@ class _MyHomePageState extends State<MyHomePage> {
             },
           ),
           appBar: AppBar(
+            leading: Icon(Icons.check_circle, size: 35),
+            actions: [Icon(Icons.search, size: 30), Icon(Icons.menu, size: 30)],
             title: todosData.isDataLoaded
                 ? DropdownButton<dynamic>(
+                    iconEnabledColor: Theme.of(context).colorScheme.secondary,
+                    underline: SizedBox(height: 0),
                     isExpanded: true,
                     items: () {
                       var activeLists = todosData.activeLists;
                       List<DropdownMenuItem<dynamic>> menuItems = [];
                       menuItems.add(DropdownMenuItem<String>(
-                        child: Text(allListName),
+                        child: Text(
+                          allListName,
+                          style: Theme.of(context).textTheme.subtitle2,
+                        ),
                         value: allListName,
                       ));
                       for (var taskList in activeLists.values) {
                         menuItems.add(DropdownMenuItem<int>(
-                          child: Text(taskList.listName),
+                          child: Text(
+                            taskList.listName,
+                            style: Theme.of(context).textTheme.subtitle2,
+                          ),
                           value: taskList.listID,
                         ));
                       }
@@ -80,14 +92,8 @@ class _MyHomePageState extends State<MyHomePage> {
           body: () {
             {
               if (todosData.isDataLoaded) {
-                //var data = todosData.activeTasks;
                 List<Widget> children = [];
-                /*for (var task in data) {
-                  children.add(ActivityCard(
-                    task: task,
-                    listName: todosData.activeLists[task.taskListID]!.listName,
-                  ));
-                }*/
+
                 for (var section in Section.values) {
                   var sectionWidgets = createSection(section, todosData);
                   children = [
@@ -96,7 +102,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ];
                 }
                 return ListView(
-                  padding: const EdgeInsets.all(5),
+                  padding: const EdgeInsets.all(10),
                   children: children,
                 );
               } else {
@@ -148,7 +154,7 @@ class ActivityCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(10.0),
         ),
         child: Container(
-          padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
+          padding: EdgeInsets.all(10),
           width: double.infinity,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,12 +162,15 @@ class ActivityCard extends StatelessWidget {
               SizedBox(
                 width: 20,
                 height: 20,
-                child: Checkbox(
-                  onChanged: (value) {
-                    Provider.of<TodosData>(context, listen: false)
-                        .finishTask(task);
-                  },
-                  value: false,
+                child: Theme(
+                  data: ThemeData(unselectedWidgetColor: Colors.white),
+                  child: Checkbox(
+                    onChanged: (value) {
+                      Provider.of<TodosData>(context, listen: false)
+                          .finishTask(task);
+                    },
+                    value: false,
+                  ),
                 ),
               ),
               Container(
@@ -172,18 +181,16 @@ class ActivityCard extends StatelessWidget {
                 children: [
                   Text(
                     task.taskName,
-                    style: TextStyle(
-                      //color, fontsize, fontweight
-                      color: Colors.orange,
-                      //fontWeight: FontWeight.w900,
-                      fontSize: 18,
-                    ),
+                    style: Theme.of(context).textTheme.subtitle2,
                   ),
                   SizedBox(height: 5),
                   ...(task.deadlineDate == null
                       ? []
                       : [
-                          Text(deadlineString(context)),
+                          Text(
+                            deadlineString(context),
+                            style: Theme.of(context).textTheme.bodyText1,
+                          ),
                         ]),
                   Text(listName),
                 ],
@@ -191,7 +198,6 @@ class ActivityCard extends StatelessWidget {
             ],
           ),
         ),
-        color: Colors.yellow,
       ),
     );
   }

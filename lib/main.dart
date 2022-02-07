@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/new_task_screen.dart';
@@ -9,7 +10,9 @@ import "todos_data.dart";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await SqliteDB.initDb();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -22,8 +25,41 @@ class MyApp extends StatelessWidget {
       create: (context) => TodosData(),
       child: MaterialApp(
         title: 'Flutter Demo',
-        theme: ThemeData(
-          primarySwatch: Colors.red,
+        theme: ThemeData.from(
+          colorScheme: ColorScheme(
+            brightness: Brightness.light,
+            error: Colors.yellow,
+            onError: Colors.black,
+            background: Color(0xFF002C4F),
+            onBackground: Colors.pink,
+            primary: Color(0xFF016EAF),
+            onPrimary: Colors.white,
+            primaryVariant: Color(0xFF016EAF),
+            secondary: Colors.white,
+            secondaryVariant: Colors.green,
+            onSecondary: Color(0xFF016EAF),
+            surface: Color(0xFF005383),
+            onSurface: Colors.white,
+          ),
+          textTheme: TextTheme(
+            bodyText1: TextStyle(
+              color: Color(0xFF85CDFD),
+            ),
+            bodyText2: TextStyle(
+              color: Colors.white,
+            ),
+            subtitle1: TextStyle(
+              color: Color(0xFF85CDFD),
+              fontWeight: FontWeight.w900,
+              fontSize: 17,
+            ),
+            subtitle2: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.normal,
+              fontSize: 17,
+            ),
+            button: TextStyle(color: Colors.black),
+          ),
         ),
         initialRoute: routing.homeScreenID,
         /*routes: {

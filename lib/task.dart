@@ -47,6 +47,15 @@ class Task {
     this.deadlineTime,
   });
 
+  Task.fromTask(task)
+      : this.taskName = task.taskName,
+        this.taskListID = task.taskListID,
+        this.taskID = task.taskID,
+        this.isFinished = task.isFinished,
+        this.isRepeating = task.isRepeating,
+        this.parentTaskID = task.parentTaskID,
+        this.deadlineDate = task.deadlineDate,
+        this.deadlineTime = task.deadlineTime;
   int taskID;
   int taskListID;
   int? parentTaskID; //used for repeated task instances only
