@@ -54,4 +54,32 @@ class FirestoreDB {
       return false;
     }
   }
+
+  static Future<List<TaskList>?> getAllActiveLists(String uid) async {
+    try {
+      var addedData = await instance
+          .collection("List")
+          .where('uid', isEqualTo: uid)
+          .where('isActive', isEqualTo: 1)
+          .get();
+      List<TaskList> result = [];
+      for (var doc in addedData.docs) {
+        result.add(TaskList.fromFirestoreMap(doc.data(), doc.id));
+      }
+      return result;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
+  static Future<String?> insertList(Map<String, dynamic> listAsMap) async {
+    try {
+      var addedData = await instance.collection("List").add(listAsMap);
+      return addedData.id;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
 }

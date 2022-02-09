@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'task.dart';
-import 'sqlite.dart';
+//import 'sqlite.dart';
 import "package:firebase_auth/firebase_auth.dart";
 import "firestore_wrapper.dart";
 
@@ -31,7 +31,15 @@ class TodosData extends ChangeNotifier {
     nextMonth = DateTime(now.year, now.month, now.day + 30);
 
     //activeTasks = await SqliteDB.getAllPendingTasks();
-    activeLists = await SqliteDB.getAllActiveLists();
+    //activeLists = await SqliteDB.getAllActiveLists();
+    activeLists = [
+      TaskList(
+        isActive: true,
+        listID: defaultListID,
+        listName: defaultListName,
+      )
+    ];
+    activeLists.addAll((await FirestoreDB.getAllActiveLists(userID))!);
     activeTasks = (await FirestoreDB.getAllPendingTasks(userID))!;
     isDataLoaded = true;
     notifyListeners();
@@ -105,10 +113,11 @@ class TodosData extends ChangeNotifier {
 
   void addList(String listName) async {
     TaskList taskList =
-        TaskList(isActive: true, listID: -1, listName: listName);
+        TaskList(isActive: true, listID: "-1", listName: listName);
     var taskListAsMap = taskList.toMap();
+    taskListAsMap["uid"] = userID;
     taskListAsMap.remove("listID");
-    int? id = await SqliteDB.insertList(taskListAsMap);
+    String? id = await FirestoreDB.insertList(taskListAsMap);
     if (id == null) {
       print("could not insert list into database");
     } else {
@@ -158,7 +167,7 @@ class TodosData extends ChangeNotifier {
   }
 
   List<Task> fetchSection(
-      {required int selectedListID, required Section section}) {
+      {required String selectedListID, required Section section}) {
     List<Task> result = [];
     activeTasks.sort(deadlineComparator);
     for (var task in activeTasks) {

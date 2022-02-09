@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 //used to display in UI
 const String noRepeat = "No Repeat";
 const String defaultListName = "Default";
-const int defaultListID = 1;
+const String defaultListID = "1";
 
 enum RepeatCycle {
   onceADay,
@@ -47,7 +47,7 @@ class Task {
   });
 
   String taskID;
-  int taskListID;
+  String taskListID;
   int? parentTaskID; //used for repeated task instances only
   String taskName;
   DateTime? deadlineDate;
@@ -158,7 +158,7 @@ class RepeatingTask {
 }
 
 class TaskList {
-  int listID;
+  String listID;
   String listName;
   bool isActive;
   /*List<Task> nonRepeatingTasks;
@@ -186,6 +186,14 @@ class TaskList {
     ));
   }
 
+  static TaskList fromFirestoreMap(
+      Map<String, dynamic> taskListAsMap, String id) {
+    return (TaskList(
+      isActive: taskListAsMap["isActive"] == 1 ? true : false,
+      listID: id,
+      listName: taskListAsMap["listName"],
+    ));
+  }
   /*List<Task> getActiveTasks() {
     //TODO::Select repeating Task Instances as well
     List<Task> activeNonRepeatingTasks = [];
