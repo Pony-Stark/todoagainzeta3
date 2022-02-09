@@ -4,7 +4,6 @@ import 'screens/logo_screen.dart';
 import 'screens/new_task_screen.dart';
 import 'screens/routing.dart' as routing;
 import "screens/home_screen.dart";
-import 'sqlite.dart';
 import "task.dart";
 import "todos_data.dart";
 import "screens/social_sign_in_screen.dart";

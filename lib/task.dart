@@ -113,21 +113,21 @@ class Task {
     return (task);
   }
 
-  Map<String, dynamic> toFirestoreMap() {
+  Map<String, dynamic> toFirestoreMap(String uid) {
     Map<String, dynamic> taskAsMap = {
+      "uid": uid,
       "taskListID": taskListID,
       "parentTaskID": null,
       "taskName": taskName,
       "deadlineDate":
-      deadlineDate == null ? null : deadlineDate!.millisecondsSinceEpoch,
+          deadlineDate == null ? null : deadlineDate!.millisecondsSinceEpoch,
       "deadlineTime":
-      deadlineTime == null ? null : intFromTimeOfDay(deadlineTime!),
+          deadlineTime == null ? null : intFromTimeOfDay(deadlineTime!),
       "isFinished": isFinished == true ? 1 : 0,
       "isRepeating": isRepeating == true ? 1 : 0,
     };
     return (taskAsMap);
   }
-
 }
 
 int intFromTimeOfDay(TimeOfDay tod) {

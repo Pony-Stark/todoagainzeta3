@@ -16,8 +16,11 @@ class FirestoreDB {
 
   static Future<List<Task>?> getAllPendingTasks(String uid) async {
     try {
-      var addedData =
-          await instance.collection("Task").where('uid', isEqualTo: uid).get();
+      var addedData = await instance
+          .collection("Task")
+          .where('uid', isEqualTo: uid)
+          .where('isFinished', isEqualTo: 0)
+          .get();
       List<Task> result = [];
       for (var doc in addedData.docs) {
         result.add(Task.fromFirestoreMap(doc.data(), doc.id));
@@ -29,13 +32,16 @@ class FirestoreDB {
     }
   }
 
-  static Future<String?> updateTask(Task task) async {
+  static Future<bool> updateTask(Task task, String uid) async {
     try {
-      var addedData =
-      await instance.collection("Task").doc(task.taskID).update(task.toMap());
+      await instance
+          .collection("Task")
+          .doc(task.taskID)
+          .set(task.toFirestoreMap(uid));
+      return true;
     } catch (e) {
       print(e);
-      return null;
+      return false;
     }
   }
 }

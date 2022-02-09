@@ -61,7 +61,7 @@ class TodosData extends ChangeNotifier {
   }
 
   void updateTask(Task task) async {
-    bool success = await SqliteDB.updateTask(task);
+    bool success = await FirestoreDB.updateTask(task, userID);
     if (success == false) {
       print("could not update the task");
     }
@@ -93,7 +93,7 @@ class TodosData extends ChangeNotifier {
 
   void finishTask(Task task) async {
     task.isFinished = true;
-    SqliteDB.updateTask(task);
+    FirestoreDB.updateTask(task, userID);
     var index = findTaskIndexInActiveTaskList(task);
     if (index == null) {
       print("Task not found in active task list");
@@ -150,7 +150,6 @@ class TodosData extends ChangeNotifier {
             exactDeadline.day,
             task.deadlineTime!.hour,
             task.deadlineTime!.minute);
-      print(exactDeadline);
       if (now.isAfter(exactDeadline))
         return Section.overdue;
       else
