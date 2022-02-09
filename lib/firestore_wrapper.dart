@@ -44,4 +44,14 @@ class FirestoreDB {
       return false;
     }
   }
+
+  static Future<bool> deleteTask(Task task) async {
+    try {
+      await instance.collection("Task").doc(task.taskID).delete();
+      return true;
+    } catch (e) {
+      print(e);
+      return false;
+    }
+  }
 }

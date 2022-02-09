@@ -77,7 +77,7 @@ class TodosData extends ChangeNotifier {
   }
 
   void deleteTask(Task task) async {
-    bool success = await SqliteDB.deleteTask(task);
+    bool success = await FirestoreDB.deleteTask(task);
     if (success == false) {
       print("Could not delete task");
     } else {
