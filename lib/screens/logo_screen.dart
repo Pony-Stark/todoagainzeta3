@@ -31,10 +31,11 @@ class _LogoScreenState extends State<LogoScreen> {
         if (snapshot.hasData) {
           FirebaseAuth auth = FirebaseAuth.instance;
           if (auth.currentUser == null) {
-            Provider.of<TodosData>(context, listen: false).initTodosData();
             return SocialSignIn();
-          } else
+          } else {
+            Provider.of<TodosData>(context, listen: false).initTodosData();
             return MyHomePage();
+          }
         } else if (snapshot.hasError)
           return Center(child: (Text("Error")));
         else
