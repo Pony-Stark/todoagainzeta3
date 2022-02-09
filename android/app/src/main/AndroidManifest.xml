@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.todoagainzeta3">
+    package="com.ppa.todoagainclass">
    <application
         android:label="todoagainzeta3"
         android:icon="@mipmap/ic_launcher">

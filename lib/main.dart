@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'screens/logo_screen.dart';
 import 'screens/new_task_screen.dart';
 import 'screens/routing.dart' as routing;
 import "screens/home_screen.dart";
 import 'sqlite.dart';
 import "task.dart";
 import "todos_data.dart";
-import 'package:firebase_core/firebase_core.dart';
 import "screens/social_sign_in_screen.dart";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SqliteDB.initDb();
-  await Firebase.initializeApp();
+
   runApp(const MyApp());
 }
 
@@ -28,7 +27,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.red,
         ),
-        initialRoute: routing.socialSignInID,
+        initialRoute: routing.logoScreenID,
         /*routes: {
           routing.newTaskScreenID: (context) => NewTaskScreen(),
           routing.homeScreenID: (context) => const MyHomePage(),
@@ -47,6 +46,8 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder: (context) => MyHomePage());
           if (pageName == routing.socialSignInID)
             return MaterialPageRoute(builder: (context) => SocialSignIn());
+          if (pageName == routing.logoScreenID)
+            return MaterialPageRoute(builder: (context) => LogoScreen());
         },
       ),
     );

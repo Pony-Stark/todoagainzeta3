@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'task.dart';
 import 'sqlite.dart';
+import "package:firebase_auth/firebase_auth.dart";
 
 class AggregatedTasks {
   List<Task> overdue = [], thisMonth = [], later = [];
@@ -15,17 +16,16 @@ enum Section {
 class TodosData extends ChangeNotifier {
   bool isDataLoaded = false;
   List<Task> activeTasks = [];
-  TodosData() {
-    initTodosData();
-  }
   List<TaskList> activeLists = [];
   Map<int, AggregatedTasks> aggregatedTasksMap = {};
   DateTime now = DateTime.now();
   DateTime today = DateTime.now();
   DateTime nextMonth = DateTime.now();
+  String userID = "";
 
   void initTodosData() async {
     now = DateTime.now();
+    userID = FirebaseAuth.instance.currentUser!.uid;
     today = DateTime(now.year, now.month, now.day);
     nextMonth = DateTime(now.year, now.month, now.day + 30);
 

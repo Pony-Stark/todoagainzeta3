@@ -5,6 +5,8 @@ import "routing.dart" as routing;
 import "../sqlite.dart";
 import "../task.dart";
 import "../todos_data.dart";
+import "package:firebase_auth/firebase_auth.dart";
+import "package:google_sign_in/google_sign_in.dart";
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key}) : super(key: key);
@@ -51,8 +53,20 @@ class _MyHomePageState extends State<MyHomePage> {
             },
           ),
           appBar: AppBar(
+            actions: [
+              IconButton(
+                icon: Icon(Icons.logout_outlined),
+                onPressed: () async {
+                  await GoogleSignIn().signOut();
+                  await FirebaseAuth.instance.signOut();
+                  Navigator.pushNamedAndRemoveUntil(
+                      context, routing.socialSignInID, (route) => false);
+                },
+              ),
+            ],
             title: DropdownButton<int>(
               isExpanded: true,
+
               //items: dropdownItemCreator(["Default"]),
               items: () {
                 var activeLists = todosData.activeLists;

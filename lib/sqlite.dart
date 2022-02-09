@@ -42,7 +42,7 @@ class SqliteDB {
   static initDb() async {
     String folderPath = await getDatabasesPath();
     String path = join(folderPath, "todo.db");
-    await deleteDatabase(path);
+    //await deleteDatabase(path);
 
     var taskDb = await openDatabase(
       path,
