@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'task.dart';
 import 'sqlite.dart';
 import "package:firebase_auth/firebase_auth.dart";
+import "firestore_wrapper.dart";
 
 class AggregatedTasks {
   List<Task> overdue = [], thisMonth = [], later = [];
@@ -29,50 +30,9 @@ class TodosData extends ChangeNotifier {
     today = DateTime(now.year, now.month, now.day);
     nextMonth = DateTime(now.year, now.month, now.day + 30);
 
-    activeTasks = await SqliteDB.getAllPendingTasks();
+    //activeTasks = await SqliteDB.getAllPendingTasks();
     activeLists = await SqliteDB.getAllActiveLists();
-    for (var taskList in activeLists) {
-      aggregatedTasksMap[taskList.listID] = AggregatedTasks();
-    }
-    activeTasks.sort((Task a, Task b) {
-      if (a.deadlineDate == null) return 1;
-      if (b.deadlineDate == null) return -1;
-      if (a.deadlineDate!.isAfter(b.deadlineDate!)) return 1;
-      if (b.deadlineDate!.isAfter(a.deadlineDate!)) return -1;
-      //both a and b are on same dates
-      if (a.deadlineTime == null) return 1;
-      if (b.deadlineTime == null) return -1;
-      if (intFromTimeOfDay(a.deadlineTime!) > intFromTimeOfDay(b.deadlineTime!))
-        return 1;
-      if (intFromTimeOfDay(a.deadlineTime!) < intFromTimeOfDay(b.deadlineTime!))
-        return -1;
-      return 0;
-    });
-    for (var task in activeTasks) {
-      AggregatedTasks correctAggregatedTasks =
-          aggregatedTasksMap[task.taskListID]!;
-      if (task.deadlineDate == null)
-        correctAggregatedTasks.later.add(task);
-      else if (task.deadlineDate!.isAfter(nextMonth))
-        correctAggregatedTasks.later.add(task);
-      else {
-        DateTime exactDeadline = task.deadlineDate!;
-        if (task.deadlineTime == null)
-          exactDeadline = DateTime(
-              exactDeadline.year, exactDeadline.month, exactDeadline.day + 1);
-        else
-          exactDeadline = DateTime(
-              exactDeadline.year,
-              exactDeadline.month,
-              exactDeadline.day + 1,
-              task.deadlineTime!.hour,
-              task.deadlineTime!.minute);
-        if (now.isAfter(exactDeadline))
-          correctAggregatedTasks.overdue.add(task);
-        else
-          correctAggregatedTasks.thisMonth.add(task);
-      }
-    }
+    activeTasks = (await FirestoreDB.getAllPendingTasks(userID))!;
     isDataLoaded = true;
     notifyListeners();
   }
@@ -80,7 +40,8 @@ class TodosData extends ChangeNotifier {
   void addTask(Task task) async {
     var taskAsMap = task.toMap();
     taskAsMap.remove("taskID");
-    int? id = await SqliteDB.insertTask(taskAsMap);
+    taskAsMap["uid"] = userID;
+    String? id = await FirestoreDB.createTask(taskAsMap);
     if (id == null) {
       print("could not insert into database");
     } else {
@@ -157,18 +118,55 @@ class TodosData extends ChangeNotifier {
     }
   }
 
+  int deadlineComparator(Task a, Task b) {
+    if (a.deadlineDate == null) return 1;
+    if (b.deadlineDate == null) return -1;
+    if (a.deadlineDate!.isAfter(b.deadlineDate!)) return 1;
+    if (b.deadlineDate!.isAfter(a.deadlineDate!)) return -1;
+    //both a and b are on same dates
+    if (a.deadlineTime == null) return 1;
+    if (b.deadlineTime == null) return -1;
+    if (intFromTimeOfDay(a.deadlineTime!) > intFromTimeOfDay(b.deadlineTime!))
+      return 1;
+    if (intFromTimeOfDay(a.deadlineTime!) < intFromTimeOfDay(b.deadlineTime!))
+      return -1;
+    return 0;
+  }
+
+  Section findSection(Task task) {
+    if (task.deadlineDate == null)
+      return Section.later;
+    else if (task.deadlineDate!.isAfter(nextMonth))
+      return Section.later;
+    else {
+      DateTime exactDeadline = task.deadlineDate!;
+      if (task.deadlineTime == null)
+        exactDeadline = DateTime(
+            exactDeadline.year, exactDeadline.month, exactDeadline.day + 1);
+      else
+        exactDeadline = DateTime(
+            exactDeadline.year,
+            exactDeadline.month,
+            exactDeadline.day,
+            task.deadlineTime!.hour,
+            task.deadlineTime!.minute);
+      print(exactDeadline);
+      if (now.isAfter(exactDeadline))
+        return Section.overdue;
+      else
+        return Section.thisMonth;
+    }
+  }
+
   List<Task> fetchSection(
       {required int selectedListID, required Section section}) {
-    AggregatedTasks correctAggregatedTasks =
-        aggregatedTasksMap[selectedListID]!;
-    if (section == Section.overdue) return correctAggregatedTasks.overdue;
-    if (section == Section.thisMonth) return correctAggregatedTasks.thisMonth;
-    if (section == Section.later)
-      return correctAggregatedTasks.later;
-    //TODO::throw error if you reach the following line
-    else {
-      print("we are in invalid state and throw some error");
-      return [];
+    List<Task> result = [];
+    activeTasks.sort(deadlineComparator);
+    for (var task in activeTasks) {
+      if (task.taskListID != selectedListID) continue;
+      Section taskSection = findSection(task);
+      if (taskSection == section) result.add(task);
     }
+    return result;
   }
 }
