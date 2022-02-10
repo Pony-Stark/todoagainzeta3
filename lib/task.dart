@@ -46,7 +46,7 @@ class Task {
     this.deadlineTime,
   });
 
-  int taskID;
+  String taskID;
   int taskListID;
   int? parentTaskID; //used for repeated task instances only
   String taskName;
@@ -76,7 +76,7 @@ class Task {
 
   static Task fromMap(Map<String, dynamic> taskAsMap) {
     Task task = Task(
-      taskID: taskAsMap["taskID"],
+      taskID: taskAsMap["taskID"].toString(),
       taskListID: taskAsMap["taskListID"],
       parentTaskID: taskAsMap["parentTaskID"],
       taskName: taskAsMap["taskName"],
@@ -90,6 +90,40 @@ class Task {
       isRepeating: taskAsMap["isRepeating"] == 0 ? false : true,
     );
     return (task);
+  }
+
+  static Task fromFirestoreMap(Map<String, dynamic> taskAsMap, String taskID) {
+    Task task = Task(
+      taskID: taskID,
+      taskListID: taskAsMap["taskListID"],
+      parentTaskID: taskAsMap["parentTaskID"],
+      taskName: taskAsMap["taskName"],
+      deadlineDate: taskAsMap["deadlineDate"] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(taskAsMap["deadlineDate"]),
+      deadlineTime: taskAsMap["deadlineTime"] == null
+          ? null
+          : timeOfDayFromInt(taskAsMap["deadlineTime"]),
+      isFinished: taskAsMap["isFinished"] == 0 ? false : true,
+      isRepeating: taskAsMap["isRepeating"] == 0 ? false : true,
+    );
+    return (task);
+  }
+
+  Map<String, dynamic> toFirestoreMap(String uid) {
+    Map<String, dynamic> taskAsMap = {
+      "uid": uid,
+      "taskListID": taskListID,
+      "parentTaskID": null,
+      "taskName": taskName,
+      "deadlineDate":
+          deadlineDate == null ? null : deadlineDate!.millisecondsSinceEpoch,
+      "deadlineTime":
+          deadlineTime == null ? null : intFromTimeOfDay(deadlineTime!),
+      "isFinished": isFinished == true ? 1 : 0,
+      "isRepeating": isRepeating == true ? 1 : 0,
+    };
+    return (taskAsMap);
   }
 }
 

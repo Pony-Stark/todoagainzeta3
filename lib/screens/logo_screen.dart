@@ -15,31 +15,25 @@ class LogoScreen extends StatefulWidget {
   _LogoScreenState createState() => _LogoScreenState();
 }
 
-Future<int> initialization() async {
-  await Firebase.initializeApp();
-  await SqliteDB.initDb();
-  return 1;
-}
-
 class _LogoScreenState extends State<LogoScreen> {
-  Future<int> init = initialization();
+  @override
+  initState() {
+    WidgetsBinding.instance!.addPostFrameCallback((timeStamp) async {
+      await Firebase.initializeApp();
+      await SqliteDB.initDb();
+      FirebaseAuth auth = FirebaseAuth.instance;
+      if (auth.currentUser != null) {
+        Provider.of<TodosData>(context, listen: false).initTodosData();
+        Navigator.pushNamedAndRemoveUntil(
+            context, routing.homeScreenID, (route) => false);
+      } else
+        Navigator.pushNamedAndRemoveUntil(
+            context, routing.socialSignInID, (route) => false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<int>(
-      future: init,
-      builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          FirebaseAuth auth = FirebaseAuth.instance;
-          if (auth.currentUser == null) {
-            Provider.of<TodosData>(context, listen: false).initTodosData();
-            return SocialSignIn();
-          } else
-            return MyHomePage();
-        } else if (snapshot.hasError)
-          return Center(child: (Text("Error")));
-        else
-          return Center(child: CircularProgressIndicator());
-      },
-    );
+    return Center(child: Text("Todos"));
   }
 }

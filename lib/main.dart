@@ -10,8 +10,6 @@ import "todos_data.dart";
 import "screens/social_sign_in_screen.dart";
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
   runApp(const MyApp());
 }
 

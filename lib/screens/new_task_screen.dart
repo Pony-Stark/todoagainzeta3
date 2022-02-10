@@ -20,7 +20,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       isRepeating: false,
       taskName: "",
       taskListID: defaultListID,
-      taskID: -1,
+      taskID: "dummyTaskID",
       parentTaskID: null,
       deadlineDate: null,
       deadlineTime: null);
