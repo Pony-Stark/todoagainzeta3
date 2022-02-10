@@ -70,12 +70,11 @@ class TodosData extends ChangeNotifier {
     nextMonth = DateTime(now.year, now.month, now.day + 30);
     userID = FirebaseAuth.instance.currentUser!.uid;
 
-    //activeTasks = await SqliteDB.getAllPendingTasks();
+    activeLists = [
+      TaskList(isActive: true, listID: defaultListID, listName: defaultListName)
+    ];
     activeTasks = (await FirestoreDB.getAllPendingTasks(userID))!;
-    activeLists = await SqliteDB.getAllActiveLists();
-    for (var taskList in activeLists) {
-      aggregatedTasksMap[taskList.listID] = AggregatedTasks();
-    }
+    activeLists.addAll((await FirestoreDB.getAllActiveLists(userID))!);
     activeTasks.sort(compareTasksByDeadline);
     isDataLoaded = true;
     notifyListeners();
@@ -122,7 +121,7 @@ class TodosData extends ChangeNotifier {
   }
 
   void deleteTask(Task task) async {
-    bool success = await SqliteDB.deleteTask(task);
+    bool success = await FirestoreDB.deleteTask(task);
     if (success == false) {
       print("Could not delete task");
     } else {
@@ -150,10 +149,11 @@ class TodosData extends ChangeNotifier {
 
   void addList(String listName) async {
     TaskList taskList =
-        TaskList(isActive: true, listID: -1, listName: listName);
+        TaskList(isActive: true, listID: "-1", listName: listName);
     var taskListAsMap = taskList.toMap();
     taskListAsMap.remove("listID");
-    int? id = await SqliteDB.insertList(taskListAsMap);
+    taskListAsMap["uid"] = userID;
+    String? id = await FirestoreDB.insertList(taskListAsMap);
     if (id == null) {
       print("could not insert list into database");
     } else {
@@ -164,7 +164,7 @@ class TodosData extends ChangeNotifier {
   }
 
   List<Task> fetchSection(
-      {required int selectedListID, required Section section}) {
+      {required String selectedListID, required Section section}) {
     List<Task> result = [];
     activeTasks.sort(compareTasksByDeadline);
     for (var task in activeTasks) {

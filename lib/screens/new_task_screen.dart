@@ -340,14 +340,14 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 //dropdown Menu for list
                 Consumer<TodosData>(builder: (context, todosData, child) {
                   return Expanded(
-                    child: DropdownButton<int>(
+                    child: DropdownButton<String>(
                       isExpanded: true,
                       //items: dropdownItemCreator(["Default"]),
                       items: () {
                         var activeLists = todosData.activeLists;
-                        List<DropdownMenuItem<int>> menuItems = [];
+                        List<DropdownMenuItem<String>> menuItems = [];
                         for (var taskList in activeLists) {
-                          menuItems.add(DropdownMenuItem<int>(
+                          menuItems.add(DropdownMenuItem<String>(
                             child: Text(taskList.listName),
                             value: taskList.listID,
                           ));

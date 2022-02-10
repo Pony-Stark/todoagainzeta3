@@ -16,7 +16,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int selectedListID = defaultListID;
+  String selectedListID = defaultListID;
 
   List<Widget> createSection(Section section, TodosData todosData) {
     List<Task> tasks = todosData.fetchSection(
@@ -64,15 +64,15 @@ class _MyHomePageState extends State<MyHomePage> {
                 },
               ),
             ],
-            title: DropdownButton<int>(
+            title: DropdownButton<String>(
               isExpanded: true,
 
               //items: dropdownItemCreator(["Default"]),
               items: () {
                 var activeLists = todosData.activeLists;
-                List<DropdownMenuItem<int>> menuItems = [];
+                List<DropdownMenuItem<String>> menuItems = [];
                 for (var taskList in activeLists) {
-                  menuItems.add(DropdownMenuItem<int>(
+                  menuItems.add(DropdownMenuItem<String>(
                     child: Text(taskList.listName),
                     value: taskList.listID,
                   ));

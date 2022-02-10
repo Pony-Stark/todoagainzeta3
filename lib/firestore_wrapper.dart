@@ -43,4 +43,42 @@ class FirestoreDB {
       return false;
     }
   }
+
+  static Future<bool> deleteTask(Task task) async {
+    try {
+      await instance.collection("Task").doc(task.taskID).delete();
+      return true;
+    } catch (e) {
+      print(e);
+      return false;
+    }
+  }
+
+  static Future<String?> insertList(Map<String, dynamic> taskListData) async {
+    try {
+      var addedList = await instance.collection("List").add(taskListData);
+      return addedList.id;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
+  static Future<List<TaskList>?> getAllActiveLists(String uid) async {
+    try {
+      var readData = await instance
+          .collection("List")
+          .where("uid", isEqualTo: uid)
+          .where("isActive", isEqualTo: 1)
+          .get();
+      List<TaskList> result = [];
+      for (var doc in readData.docs) {
+        result.add(TaskList.fromFirestoreMap(doc.data(), doc.id));
+      }
+      return result;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
 }
