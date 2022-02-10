@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import "routing.dart" as routing;
 import "../task.dart";
 import "../todos_data.dart";
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key}) : super(key: key);
@@ -14,7 +16,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  dynamic selectedList = allListName;
+  String selectedList = allListName;
 
   List<Widget> createSection(Section section, TodosData todosData) {
     var sectionTasks =
@@ -47,21 +49,36 @@ class _MyHomePageState extends State<MyHomePage> {
           floatingActionButton: FloatingActionButton(
             //onPressed: (){},
             child: const Icon(Icons.add, size: 35),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pushNamed(context, routing.newTaskScreenID);
             },
           ),
           appBar: AppBar(
             leading: Icon(Icons.check_circle, size: 35),
-            actions: [Icon(Icons.search, size: 30), Icon(Icons.menu, size: 30)],
+            actions: [
+              Icon(Icons.search, size: 30),
+              PopupMenuButton<String>(itemBuilder: (context) {
+                return [
+                  PopupMenuItem<String>(
+                    child: Text("Sign out"),
+                    onTap: () async {
+                      await GoogleSignIn().signOut();
+                      await FirebaseAuth.instance.signOut();
+                      Navigator.pushNamedAndRemoveUntil(
+                          context, routing.socialSignInID, (route) => false);
+                    },
+                  ),
+                ];
+              }),
+            ],
             title: todosData.isDataLoaded
-                ? DropdownButton<dynamic>(
+                ? DropdownButton<String>(
                     iconEnabledColor: Theme.of(context).colorScheme.secondary,
                     underline: SizedBox(height: 0),
                     isExpanded: true,
                     items: () {
                       var activeLists = todosData.activeLists;
-                      List<DropdownMenuItem<dynamic>> menuItems = [];
+                      List<DropdownMenuItem<String>> menuItems = [];
                       menuItems.add(DropdownMenuItem<String>(
                         child: Text(
                           allListName,
@@ -70,7 +87,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         value: allListName,
                       ));
                       for (var taskList in activeLists.values) {
-                        menuItems.add(DropdownMenuItem<int>(
+                        menuItems.add(DropdownMenuItem<String>(
                           child: Text(
                             taskList.listName,
                             style: Theme.of(context).textTheme.subtitle2,

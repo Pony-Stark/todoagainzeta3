@@ -20,7 +20,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       isRepeating: false,
       taskName: "",
       taskListID: defaultListID,
-      taskID: -1,
+      taskID: "-1",
       parentTaskID: null,
       deadlineDate: null,
       deadlineTime: null);
@@ -298,7 +298,10 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                     iconEnabledColor: Theme.of(context).colorScheme.secondary,
                     items: [2, 3, 4, 5, 6, 7, 8, 9, 10]
                         .map((int t) => DropdownMenuItem<int>(
-                              child: Text(t.toString()),
+                              child: Text(
+                                t.toString(),
+                                style: Theme.of(context).textTheme.subtitle2,
+                              ),
                               value: t,
                             ))
                         .toList(),
@@ -348,15 +351,15 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 //dropdown Menu for list
                 Consumer<TodosData>(builder: (context, todosData, child) {
                   return Expanded(
-                    child: DropdownButton<int>(
+                    child: DropdownButton<String>(
                       dropdownColor: Theme.of(context).colorScheme.onSecondary,
                       iconEnabledColor: Theme.of(context).colorScheme.secondary,
                       isExpanded: true,
                       items: () {
                         var activeLists = todosData.activeLists;
-                        List<DropdownMenuItem<int>> menuItems = [];
+                        List<DropdownMenuItem<String>> menuItems = [];
                         for (var taskList in activeLists.values) {
-                          menuItems.add(DropdownMenuItem<int>(
+                          menuItems.add(DropdownMenuItem<String>(
                             child: Text(
                               taskList.listName,
                               style: Theme.of(context).textTheme.subtitle2,

@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'task.dart';
 import 'sqlite.dart';
+import 'firestore_wrapper.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AggregatedTasks {
   List<Task> overdue = [],
@@ -120,7 +122,7 @@ class AggregatedTasks {
     targetList.add(task);
   }
 
-  void deleteUnmodifiedTask(Task task) {
+  void deleteOriginalTask(Task task) {
     Section section = findSection(task);
     List<Task> targetList = findListFromSection(section);
     int index =
@@ -174,19 +176,28 @@ String sectionToUIString(Section section) {
 }
 
 class TodosData extends ChangeNotifier {
+  FirebaseAuth auth = FirebaseAuth.instance;
   bool isDataLoaded = false;
   List<Task> activeTasks = [];
-  TodosData() {
-    initTodosData();
-  }
-  Map<int, TaskList> activeLists = {};
-  Map<int, AggregatedTasks> aggregatedTasksMap = {};
+  Map<String, TaskList> activeLists = {};
+  Map<String, AggregatedTasks> aggregatedTasksMap = {};
   AggregatedTasks allListsCombined = AggregatedTasks();
+  String userID = "";
 
   void initTodosData() async {
-    //activeTasks sorted initially. But not when user inserts/updates a task
-    activeTasks = await SqliteDB.getAllPendingTasks();
-    var activeListsAsArray = await SqliteDB.getAllActiveLists();
+    //clear.. initTodosData may be called once user logs in
+    isDataLoaded = false;
+    activeTasks.clear();
+    activeLists.clear();
+    aggregatedTasksMap.clear();
+    allListsCombined = AggregatedTasks();
+    userID = auth.currentUser!.uid;
+
+    activeTasks = (await FirestoreDB.getAllPendingTasks(userID))!;
+    List<TaskList> activeListsAsArray = [
+      TaskList(isActive: true, listID: defaultListID, listName: defaultListName)
+    ];
+    activeListsAsArray.addAll((await FirestoreDB.getAllActiveLists(userID))!);
     AggregatedTasks.initializeDateVars();
     for (var taskList in activeListsAsArray) {
       activeLists[taskList.listID] = taskList;
@@ -203,9 +214,9 @@ class TodosData extends ChangeNotifier {
   }
 
   void addTask(Task task) async {
-    var taskAsMap = task.toMap();
+    var taskAsMap = task.toFirestoreMap(userID);
     taskAsMap.remove("taskID");
-    int? id = await SqliteDB.insertTask(taskAsMap);
+    String? id = await FirestoreDB.insertTask(taskAsMap);
     if (id == null) {
       print("could not insert into database");
     } else {
@@ -227,7 +238,7 @@ class TodosData extends ChangeNotifier {
   }
 
   void updateTask(Task task) async {
-    bool success = await SqliteDB.updateTask(task);
+    bool success = await FirestoreDB.updateTask(task, userID);
     if (success == false) {
       print("could not update the task");
     }
@@ -239,8 +250,8 @@ class TodosData extends ChangeNotifier {
       //print(originalTask.deadlineDate);
       //crucial to remove originalTask taskListID, modified task task list ID may be different
       aggregatedTasksMap[originalTask.taskListID]!
-          .deleteUnmodifiedTask(originalTask);
-      allListsCombined.deleteUnmodifiedTask(originalTask);
+          .deleteOriginalTask(originalTask);
+      allListsCombined.deleteOriginalTask(originalTask);
       aggregatedTasksMap[task.taskListID]!.insertTask(task);
       allListsCombined.insertTask(task);
     }
@@ -249,7 +260,7 @@ class TodosData extends ChangeNotifier {
 
   void deleteTask(Task task) async {
     //task variable may have been modified before deleting
-    bool success = await SqliteDB.deleteTask(task);
+    bool success = await FirestoreDB.deleteTask(task);
     if (success == false) {
       print("Could not delete task");
     } else {
@@ -260,28 +271,28 @@ class TodosData extends ChangeNotifier {
       //print(originalTask.deadlineDate);
       //crucial to remove originalTask taskListID, modified task task list ID may be different
       aggregatedTasksMap[originalTask.taskListID]!
-          .deleteUnmodifiedTask(originalTask);
-      allListsCombined.deleteUnmodifiedTask(originalTask);
+          .deleteOriginalTask(originalTask);
+      allListsCombined.deleteOriginalTask(originalTask);
       notifyListeners();
     }
   }
 
   void finishTask(Task task) async {
     task.isFinished = true;
-    SqliteDB.updateTask(task);
+    FirestoreDB.updateTask(task, userID);
     var index = _findTaskIndexInActiveTaskList(task);
     activeTasks.removeAt(index!);
-    aggregatedTasksMap[task.taskListID]!.deleteUnmodifiedTask(task);
-    allListsCombined.deleteUnmodifiedTask(task);
+    aggregatedTasksMap[task.taskListID]!.deleteOriginalTask(task);
+    allListsCombined.deleteOriginalTask(task);
     notifyListeners();
   }
 
   void addList(String listName) async {
     TaskList taskList =
-        TaskList(isActive: true, listID: -1, listName: listName);
-    var taskListAsMap = taskList.toMap();
+        TaskList(isActive: true, listID: "-1", listName: listName);
+    var taskListAsMap = taskList.toFirestoreMap(userID);
     taskListAsMap.remove("listID");
-    int? id = await SqliteDB.insertList(taskListAsMap);
+    String? id = await FirestoreDB.insertList(taskListAsMap);
     if (id == null) {
       print("could not insert list into database");
     } else {
@@ -293,35 +304,16 @@ class TodosData extends ChangeNotifier {
   }
 
   List<Task> getSection(
-      {required Section section, required dynamic selectedListID}) {
+      {required Section section, required String selectedListID}) {
     AggregatedTasks selectedAggregatedTasks;
-    if (selectedListID is int)
-      selectedAggregatedTasks = aggregatedTasksMap[selectedListID]!;
-    else if (selectedListID is String && selectedListID == allListName)
+    if (selectedListID == allListName)
       selectedAggregatedTasks = allListsCombined;
+    else if (selectedListID == selectedListID)
+      selectedAggregatedTasks = aggregatedTasksMap[selectedListID]!;
     else {
       print("no such list. Wrong input parameter");
       return [];
     }
-
-    if (section == Section.overdue)
-      return selectedAggregatedTasks.overdue;
-    else if (section == Section.today)
-      return selectedAggregatedTasks.today;
-    else if (section == Section.tomorrow)
-      return selectedAggregatedTasks.tomorrow;
-    else if (section == Section.thisWeek)
-      return selectedAggregatedTasks.thisWeek;
-    else if (section == Section.thisMonth)
-      return selectedAggregatedTasks.thisMonth;
-    else if (section == Section.later)
-      return selectedAggregatedTasks.later;
-    else if (section == Section.noDeadline)
-      return selectedAggregatedTasks.noDeadLine;
-    else {
-      //TODO::Throw error if execution reaches here
-      print("this condition is not possible. Throw error");
-      return [];
-    }
+    return selectedAggregatedTasks.findListFromSection(section);
   }
 }

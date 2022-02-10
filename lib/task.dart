@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 //used to display in UI
 const String noRepeat = "No Repeat";
 const String defaultListName = "Default";
-const int defaultListID = 1;
+const String defaultListID = "1";
 const String allListName = 'All Lists';
 
 enum RepeatCycle {
@@ -56,8 +56,8 @@ class Task {
         this.parentTaskID = task.parentTaskID,
         this.deadlineDate = task.deadlineDate,
         this.deadlineTime = task.deadlineTime;
-  int taskID;
-  int taskListID;
+  String taskID;
+  String taskListID;
   int? parentTaskID; //used for repeated task instances only
   String taskName;
   DateTime? deadlineDate;
@@ -70,8 +70,8 @@ class Task {
 
   Map<String, dynamic> toMap() {
     Map<String, dynamic> taskAsMap = {
-      "taskID": taskID,
-      "taskListID": taskListID,
+      "taskID": int.parse(taskID),
+      "taskListID": int.parse(taskListID),
       "parentTaskID": null,
       "taskName": taskName,
       "deadlineDate":
@@ -86,7 +86,25 @@ class Task {
 
   static Task fromMap(Map<String, dynamic> taskAsMap) {
     Task task = Task(
-      taskID: taskAsMap["taskID"],
+      taskID: taskAsMap["taskID"].toString(),
+      taskListID: taskAsMap["taskListID"].toString(),
+      parentTaskID: taskAsMap["parentTaskID"],
+      taskName: taskAsMap["taskName"],
+      deadlineDate: taskAsMap["deadlineDate"] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(taskAsMap["deadlineDate"]),
+      deadlineTime: taskAsMap["deadlineTime"] == null
+          ? null
+          : timeOfDayFromInt(taskAsMap["deadlineTime"]),
+      isFinished: taskAsMap["isFinished"] == 0 ? false : true,
+      isRepeating: taskAsMap["isRepeating"] == 0 ? false : true,
+    );
+    return (task);
+  }
+
+  static Task fromFirestoreMap(Map<String, dynamic> taskAsMap, String taskID) {
+    Task task = Task(
+      taskID: taskID,
       taskListID: taskAsMap["taskListID"],
       parentTaskID: taskAsMap["parentTaskID"],
       taskName: taskAsMap["taskName"],
@@ -100,6 +118,22 @@ class Task {
       isRepeating: taskAsMap["isRepeating"] == 0 ? false : true,
     );
     return (task);
+  }
+
+  Map<String, dynamic> toFirestoreMap(String uid) {
+    Map<String, dynamic> taskAsMap = {
+      "uid": uid,
+      "taskListID": taskListID,
+      "parentTaskID": null,
+      "taskName": taskName,
+      "deadlineDate":
+          deadlineDate == null ? null : deadlineDate!.millisecondsSinceEpoch,
+      "deadlineTime":
+          deadlineTime == null ? null : intFromTimeOfDay(deadlineTime!),
+      "isFinished": isFinished == true ? 1 : 0,
+      "isRepeating": isRepeating == true ? 1 : 0,
+    };
+    return (taskAsMap);
   }
 }
 
@@ -131,7 +165,7 @@ class RepeatingTask {
 }
 
 class TaskList {
-  int listID;
+  String listID;
   String listName;
   bool isActive;
   /*List<Task> nonRepeatingTasks;
@@ -145,7 +179,7 @@ class TaskList {
 
   Map<String, dynamic> toMap() {
     return {
-      "listID": listID,
+      "listID": int.parse(listID),
       "listName": listName,
       "isActive": isActive == true ? 1 : 0
     };
@@ -154,51 +188,25 @@ class TaskList {
   static TaskList fromMap(Map<String, dynamic> taskListAsMap) {
     return (TaskList(
       isActive: taskListAsMap["isActive"] == 1 ? true : false,
-      listID: taskListAsMap["listID"],
+      listID: taskListAsMap["listID"].toString(),
       listName: taskListAsMap["listName"],
     ));
   }
 
-  /*List<Task> getActiveTasks() {
-    //TODO::Select repeating Task Instances as well
-    List<Task> activeNonRepeatingTasks = [];
-    {
-      for (var i = 0; i < nonRepeatingTasks.length; i++) {
-        if (nonRepeatingTasks[i].finished == false) {
-          activeNonRepeatingTasks.add(nonRepeatingTasks[i]);
-        }
-      }
-      return (activeNonRepeatingTasks);
-    }
-  }*/
-
-  /*List<Task> getFinishedTasks() {
-    //repeating Instances as well as non-repeating Instances
-    return ([]);
+  Map<String, dynamic> toFirestoreMap(String uid) {
+    return {
+      "uid": uid,
+      "listName": listName,
+      "isActive": isActive == true ? 1 : 0
+    };
   }
 
-  void FinishTask(Task task) {}*/
-
-  /*void addTask({
-    required String taskName,
-    DateTime? deadlineDate,
-    TimeOfDay? deadlineTime,
-    int? parentTaskID,
-  }) {
-    //
-    Task(
-      taskName: taskName,
-      finished: false,
-      taskListID: taskListID,
-      deadlineDate: deadlineDate,
-      deadlineTime: deadlineTime,
-      parentTaskID: parentTaskID,
-    );
-
-    if (parentTaskID != null) {
-      //
-    }
-  }*/
-
-  /*void finishTask(Task task) {}*/
+  static TaskList fromFirestoreMap(
+      Map<String, dynamic> taskListAsMap, String listID) {
+    return (TaskList(
+      isActive: taskListAsMap["isActive"] == 1 ? true : false,
+      listID: listID,
+      listName: taskListAsMap["listName"],
+    ));
+  }
 }
