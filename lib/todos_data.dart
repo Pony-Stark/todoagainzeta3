@@ -12,7 +12,7 @@ class TaskListData {
       later = [],
       noDeadLine = [];
 
-  Section findSection(Task task) {
+  Section _findSection(Task task) {
     if (task.deadlineDate == null) {
       return Section.noDeadline;
     } else if (task.deadlineDate!.isAfter(TodosData.nextMonthDate!)) {
@@ -70,7 +70,7 @@ class TaskListData {
   }
 
   void insertTask(Task task) {
-    Section section = findSection(task);
+    Section section = _findSection(task);
     List<Task> targetList = findListFromSection(section);
     int index = targetList
         .indexWhere((element) => Task.deadlineComparator(element, task) == 1);
@@ -82,13 +82,13 @@ class TaskListData {
 
   //to be used if tasks being inserted are already sorted
   void insertTaskInitialization(Task task) {
-    Section section = findSection(task);
+    Section section = _findSection(task);
     List<Task> targetList = findListFromSection(section);
     targetList.add(task);
   }
 
   void deleteOriginalTask(Task task) {
-    Section section = findSection(task);
+    Section section = _findSection(task);
     List<Task> targetList = findListFromSection(section);
     int index =
         targetList.indexWhere((element) => element.taskID == task.taskID);
@@ -192,15 +192,6 @@ class TodosData extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _flushData() {
-    isDataLoaded = false;
-    activeTasks.clear();
-    activeLists.clear();
-    allTaskListData.clear();
-    allListsCombined = TaskListData();
-    activeRepeatingTasks = {};
-  }
-
   Future<void> addRepeatingTask(Task task, RepeatCycle repeatCycle,
       RepeatFrequency? repeatFrequency) async {
     RepeatingTask repeatingTask = RepeatingTask(
@@ -213,17 +204,16 @@ class TodosData extends ChangeNotifier {
       taskListID: task.taskListID,
       isActive: true,
       currentTaskDeadlineDate: task.deadlineDate!,
-      currentActiveTaskID: "dummyID",
+      currentActiveTaskID: "dummy",
     );
-    var result = await FirestoreDB.insertRepeatingTask(repeatingTask, userID);
-    if (result == null) {
+    Task generatedTask = repeatingTask.generateFirstTask();
+    var success = await FirestoreDB.insertRepeatingTask(
+        repeatingTask, generatedTask, userID);
+    if (!success) {
       print("could not insert into database");
     } else {
-      Task generatedTask = result["generatedTask"];
-      repeatingTask = result["repeatingTask"];
-      activeTasks.add(generatedTask);
-      allTaskListData[generatedTask.taskListID]!.insertTask(generatedTask);
-      allListsCombined.insertTask(task);
+      _insertTaskIntoDS(generatedTask);
+      activeRepeatingTasks[repeatingTask.repeatingTaskId] = repeatingTask;
     }
     notifyListeners();
   }
@@ -235,21 +225,10 @@ class TodosData extends ChangeNotifier {
       print("could not insert into database");
     } else {
       task.taskID = id;
-      activeTasks.add(task);
-      allTaskListData[task.taskListID]!.insertTask(task);
-      allListsCombined.insertTask(task);
+      _insertTaskIntoDS(task);
     }
 
     notifyListeners();
-  }
-
-  int? _findTaskIndexInActiveTaskList(Task task) {
-    var index = activeTasks.indexWhere((Task t) {
-      return t.taskID == task.taskID;
-    });
-
-    if (index == -1) return null;
-    return index;
   }
 
   void updateTask(Task task) async {
@@ -258,17 +237,8 @@ class TodosData extends ChangeNotifier {
       print("could not update the task");
     }
     {
-      var index = _findTaskIndexInActiveTaskList(task);
-      assert(index != null, "task not found in active task list");
-      Task originalTask = activeTasks[index!];
-      activeTasks[index!] = task;
-      //print(originalTask.deadlineDate);
-      //crucial to remove originalTask taskListID, modified task task list ID may be different
-      allTaskListData[originalTask.taskListID]!
-          .deleteOriginalTask(originalTask);
-      allListsCombined.deleteOriginalTask(originalTask);
-      allTaskListData[task.taskListID]!.insertTask(task);
-      allListsCombined.insertTask(task);
+      _deleteModifiedTaskFromDS(task);
+      _insertTaskIntoDS(task);
     }
     notifyListeners();
   }
@@ -279,15 +249,7 @@ class TodosData extends ChangeNotifier {
     if (success == false) {
       print("Could not delete task");
     } else {
-      var index = _findTaskIndexInActiveTaskList(task);
-      assert(index != null, "task not found in active task list");
-      Task originalTask = activeTasks[index!];
-      activeTasks.removeAt(index!);
-      //print(originalTask.deadlineDate);
-      //crucial to remove originalTask taskListID, modified task task list ID may be different
-      allTaskListData[originalTask.taskListID]!
-          .deleteOriginalTask(originalTask);
-      allListsCombined.deleteOriginalTask(originalTask);
+      _deleteModifiedTaskFromDS(task);
       notifyListeners();
     }
   }
@@ -297,40 +259,6 @@ class TodosData extends ChangeNotifier {
       _finishNonRepeatingTask(task);
     else
       _finishRepeatingTask(task);
-  }
-
-  void _finishNonRepeatingTask(Task task) async {
-    task.isFinished = true;
-    bool success = await FirestoreDB.updateTask(task, userID);
-    if (success) {
-      var index = _findTaskIndexInActiveTaskList(task);
-      activeTasks.removeAt(index!);
-      allTaskListData[task.taskListID]!.deleteOriginalTask(task);
-      allListsCombined.deleteOriginalTask(task);
-      notifyListeners();
-    } else
-      task.isFinished = false;
-  }
-
-  void _finishRepeatingTask(Task task) async {
-    Task nextTask = activeRepeatingTasks[task.parentTaskID]!.generateNextTask();
-    var result = await FirestoreDB.finishRepeatingTask(
-        task, nextTask, activeRepeatingTasks[task.parentTaskID]!, userID);
-    if (result != null) {
-      task.isFinished = true;
-      var index = _findTaskIndexInActiveTaskList(task);
-      activeTasks.removeAt(index!);
-      allTaskListData[task.taskListID]!.deleteOriginalTask(task);
-      allListsCombined.deleteOriginalTask(task);
-      activeRepeatingTasks[task.parentTaskID!] = result["repeatingTask"];
-      Task generatedTask = result["generatedTask"];
-      activeTasks.add(generatedTask);
-      allTaskListData[task.taskListID]!.insertTask(generatedTask);
-      allListsCombined.insertTask(generatedTask);
-      notifyListeners();
-    } else {
-      print("error in finishing task");
-    }
   }
 
   void addList(String listName) async {
@@ -360,5 +288,71 @@ class TodosData extends ChangeNotifier {
       return [];
     }
     return selectedAggregatedTasks.findListFromSection(section);
+  }
+
+  void _finishNonRepeatingTask(Task task) async {
+    task.isFinished = true;
+    bool success = await FirestoreDB.updateTask(task, userID);
+    if (success) {
+      _deleteTaskFromActiveDS(task);
+      notifyListeners();
+    } else
+      task.isFinished = false;
+  }
+
+  void _finishRepeatingTask(Task task) async {
+    RepeatingTask parentTask = activeRepeatingTasks[task.parentTaskID]!;
+    Task nextTask = parentTask.generateNextTask();
+    bool success = await FirestoreDB.finishRepeatingTask(
+        task, nextTask, parentTask, userID);
+    if (success) {
+      _deleteTaskFromActiveDS(task);
+      _insertTaskIntoDS(nextTask);
+      notifyListeners();
+    } else {
+      print("error in finishing task");
+    }
+  }
+
+  ///for inserting an active task into the in-memory Data Structures
+  void _insertTaskIntoDS(Task task) {
+    activeTasks.add(task);
+    allTaskListData[task.taskListID]!.insertTask(task);
+    allListsCombined.insertTask(task);
+  }
+
+  ///Used when you want to remove a task from DS with the same taskID as in the argument
+  void _deleteModifiedTaskFromDS(Task task) {
+    var index = _findTaskIndexInActiveTaskList(task);
+    assert(index != null, "task not found in active task list");
+    Task originalTask = activeTasks[index!];
+    _deleteTaskFromActiveDS(originalTask);
+  }
+
+  ///deletes a task from in-memory data structures for pending tasks.
+  ///example usage: when a task is finished or deleted
+  void _deleteTaskFromActiveDS(Task task) {
+    var index = _findTaskIndexInActiveTaskList(task);
+    activeTasks.removeAt(index!);
+    allTaskListData[task.taskListID]!.deleteOriginalTask(task);
+    allListsCombined.deleteOriginalTask(task);
+  }
+
+  void _flushData() {
+    isDataLoaded = false;
+    activeTasks.clear();
+    activeLists.clear();
+    allTaskListData.clear();
+    allListsCombined = TaskListData();
+    activeRepeatingTasks = {};
+  }
+
+  int? _findTaskIndexInActiveTaskList(Task task) {
+    var index = activeTasks.indexWhere((Task t) {
+      return t.taskID == task.taskID;
+    });
+
+    if (index == -1) return null;
+    return index;
   }
 }

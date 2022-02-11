@@ -240,17 +240,17 @@ class RepeatingTask {
   }
 
   DateTime findNextTaskDeadline() {
-    RepeatFrequency tempRepeatFrequency;
+    RepeatFrequency effectiveRepeatFrequency;
     if (repeatCycle == RepeatCycle.other)
-      tempRepeatFrequency = repeatFrequency!;
+      effectiveRepeatFrequency = repeatFrequency!;
     else if (repeatCycle == RepeatCycle.onceADay)
-      tempRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.days);
+      effectiveRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.days);
     else if (repeatCycle == RepeatCycle.onceAWeek)
-      tempRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.weeks);
+      effectiveRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.weeks);
     else if (repeatCycle == RepeatCycle.onceAMonth)
-      tempRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.months);
+      effectiveRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.months);
     else if (repeatCycle == RepeatCycle.onceAYear)
-      tempRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.years);
+      effectiveRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.years);
     else {
       assert(repeatCycle == RepeatCycle.onceADayMonFri);
       if (currentTaskDeadlineDate.weekday == DateTime.friday)
@@ -258,26 +258,26 @@ class RepeatingTask {
       else
         return currentTaskDeadlineDate.add(Duration(days: 1));
     }
-    if (tempRepeatFrequency.tenure == Tenure.days)
+    if (effectiveRepeatFrequency.tenure == Tenure.days)
       return currentTaskDeadlineDate
-          .add(Duration(days: tempRepeatFrequency.num));
-    if (tempRepeatFrequency.tenure == Tenure.weeks)
+          .add(Duration(days: effectiveRepeatFrequency.num));
+    if (effectiveRepeatFrequency.tenure == Tenure.weeks)
       return currentTaskDeadlineDate
-          .add(Duration(days: 7 * (tempRepeatFrequency.num)));
+          .add(Duration(days: 7 * (effectiveRepeatFrequency.num)));
     DateTime nextDeadline;
-    if (tempRepeatFrequency.tenure == Tenure.months) {
+    if (effectiveRepeatFrequency.tenure == Tenure.months) {
       nextDeadline = DateTime(
           currentTaskDeadlineDate.year,
-          currentTaskDeadlineDate.month + tempRepeatFrequency.num,
+          currentTaskDeadlineDate.month + effectiveRepeatFrequency.num,
           currentTaskDeadlineDate.day);
       if (nextDeadline.month - currentTaskDeadlineDate.month !=
-          tempRepeatFrequency.num)
+          effectiveRepeatFrequency.num)
         nextDeadline = DateTime(nextDeadline.year, nextDeadline.month, 0);
       return nextDeadline;
     }
-    if (tempRepeatFrequency.tenure == Tenure.years) {
+    if (effectiveRepeatFrequency.tenure == Tenure.years) {
       nextDeadline = DateTime(
-          currentTaskDeadlineDate.year + tempRepeatFrequency.num,
+          currentTaskDeadlineDate.year + effectiveRepeatFrequency.num,
           currentTaskDeadlineDate.month,
           currentTaskDeadlineDate.day);
       if (nextDeadline.month != currentTaskDeadlineDate.month)
@@ -302,7 +302,7 @@ class RepeatingTask {
       taskID: "dummy",
       isFinished: false,
       isRepeating: true,
-      parentTaskID: "dummy",
+      parentTaskID: repeatingTaskId,
       deadlineDate: deadlineDate,
       deadlineTime: deadlineTime,
     );

@@ -2,8 +2,6 @@ import 'package:flutter/foundation.dart';
 import "package:flutter/material.dart";
 import 'package:intl/intl.dart';
 import '../task.dart';
-import '../sqlite.dart';
-import 'routing.dart' as routing;
 import 'package:provider/provider.dart';
 import "../todos_data.dart";
 

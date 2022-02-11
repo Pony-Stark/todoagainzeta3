@@ -4,9 +4,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:todoagainzeta3/todos_data.dart';
 import 'routing.dart' as routing;
-import "../sqlite.dart";
-import "social_sign_in_screen.dart";
-import "home_screen.dart";
 
 class LogoScreen extends StatefulWidget {
   const LogoScreen({Key? key}) : super(key: key);
