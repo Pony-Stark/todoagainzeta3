@@ -4,7 +4,7 @@ import 'sqlite.dart';
 import 'firestore_wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class AggregatedTasks {
+class TaskListData {
   List<Task> overdue = [],
       today = [],
       tomorrow = [],
@@ -12,51 +12,17 @@ class AggregatedTasks {
       thisMonth = [],
       later = [],
       noDeadLine = [];
-  static DateTime nowTime = DateTime.now();
-  static DateTime todayDate = DateTime.now();
-  static DateTime tomorrowDate = DateTime.now();
-  static DateTime nextWeekDate = DateTime.now();
-  static DateTime nextMonthDate = DateTime.now();
-  static void initializeDateVars() {
-    nowTime = DateTime.now();
-    todayDate = DateTime(nowTime.year, nowTime.month, nowTime.day);
-    tomorrowDate = DateTime(nowTime.year, nowTime.month, nowTime.day + 1);
-    nextWeekDate = DateTime(nowTime.year, nowTime.month, nowTime.day + 7);
-    nextMonthDate = DateTime(nowTime.year, nowTime.month, nowTime.day + 30);
-  }
-
-  static int deadlineComparator(Task a, Task b) {
-    if (a.deadlineDate == null)
-      return 1;
-    else if (b.deadlineDate == null)
-      return -1;
-    else if (a.deadlineDate!.isAfter(b.deadlineDate!))
-      return 1;
-    else if (b.deadlineDate!.isAfter(a.deadlineDate!)) return -1;
-    if (a.deadlineTime == null)
-      return 1;
-    else if (b.deadlineTime == null)
-      return -1;
-    else if (intFromTimeOfDay(a.deadlineTime!) >
-        intFromTimeOfDay(a.deadlineTime!))
-      return 1;
-    else if (intFromTimeOfDay(a.deadlineTime!) <
-        intFromTimeOfDay(a.deadlineTime!))
-      return -1;
-    else
-      return 0;
-  }
 
   Section findSection(Task task) {
     if (task.deadlineDate == null) {
       return Section.noDeadline;
-    } else if (task.deadlineDate!.isAfter(nextMonthDate)) {
+    } else if (task.deadlineDate!.isAfter(TodosData.nextMonthDate!)) {
       return Section.later;
-    } else if (task.deadlineDate!.isAfter(nextWeekDate)) {
+    } else if (task.deadlineDate!.isAfter(TodosData.nextWeekDate!)) {
       return Section.thisMonth;
-    } else if (task.deadlineDate!.isAfter(tomorrowDate)) {
+    } else if (task.deadlineDate!.isAfter(TodosData.tomorrowDate!)) {
       return Section.thisWeek;
-    } else if (task.deadlineDate!.isAfter(todayDate)) {
+    } else if (task.deadlineDate!.isAfter(TodosData.todayDate!)) {
       return Section.tomorrow;
     } else {
       DateTime accurateDeadline = task.deadlineDate!;
@@ -74,7 +40,7 @@ class AggregatedTasks {
           task.deadlineTime!.hour,
           task.deadlineTime!.minute,
         );
-      if (accurateDeadline.isAfter(nowTime)) {
+      if (accurateDeadline.isAfter(TodosData.nowTime!)) {
         return Section.today;
       } else {
         return Section.overdue;
@@ -108,7 +74,7 @@ class AggregatedTasks {
     Section section = findSection(task);
     List<Task> targetList = findListFromSection(section);
     int index = targetList
-        .indexWhere((element) => deadlineComparator(element, task) == 1);
+        .indexWhere((element) => Task.deadlineComparator(element, task) == 1);
     if (index == -1)
       targetList.add(task);
     else
@@ -176,56 +142,106 @@ String sectionToUIString(Section section) {
 }
 
 class TodosData extends ChangeNotifier {
+  static DateTime? nowTime;
+  static DateTime? todayDate;
+  static DateTime? tomorrowDate;
+  static DateTime? nextWeekDate;
+  static DateTime? nextMonthDate;
+  static void initializeDateVars() {
+    nowTime = DateTime.now();
+    todayDate = DateTime(nowTime!.year, nowTime!.month, nowTime!.day);
+    tomorrowDate = DateTime(nowTime!.year, nowTime!.month, nowTime!.day + 1);
+    nextWeekDate = DateTime(nowTime!.year, nowTime!.month, nowTime!.day + 7);
+    nextMonthDate = DateTime(nowTime!.year, nowTime!.month, nowTime!.day + 30);
+  }
+
   FirebaseAuth auth = FirebaseAuth.instance;
   bool isDataLoaded = false;
   List<Task> activeTasks = [];
   Map<String, TaskList> activeLists = {};
-  Map<String, AggregatedTasks> aggregatedTasksMap = {};
-  AggregatedTasks allListsCombined = AggregatedTasks();
+  Map<String, TaskListData> allTaskListData = {};
+  TaskListData allListsCombined = TaskListData();
+  Map<String, RepeatingTask> activeRepeatingTasks = {};
   String userID = "";
 
   void initTodosData() async {
     //clear.. initTodosData may be called once user logs in
-    isDataLoaded = false;
-    activeTasks.clear();
-    activeLists.clear();
-    aggregatedTasksMap.clear();
-    allListsCombined = AggregatedTasks();
+    _flushData();
     userID = auth.currentUser!.uid;
+
+    initializeDateVars();
 
     activeTasks = (await FirestoreDB.getAllPendingTasks(userID))!;
     List<TaskList> activeListsAsArray = [
       TaskList(isActive: true, listID: defaultListID, listName: defaultListName)
     ];
     activeListsAsArray.addAll((await FirestoreDB.getAllActiveLists(userID))!);
-    AggregatedTasks.initializeDateVars();
     for (var taskList in activeListsAsArray) {
       activeLists[taskList.listID] = taskList;
-      aggregatedTasksMap[taskList.listID] = AggregatedTasks();
+      allTaskListData[taskList.listID] = TaskListData();
     }
-    activeTasks.sort(AggregatedTasks.deadlineComparator);
+    activeTasks.sort(Task.deadlineComparator);
     for (var task in activeTasks) {
       var listId = task.taskListID;
-      aggregatedTasksMap[listId]!.insertTaskInitialization(task);
+      allTaskListData[listId]!.insertTaskInitialization(task);
       allListsCombined.insertTaskInitialization(task);
     }
+    activeRepeatingTasks =
+        (await FirestoreDB.getAllActiveRepeatingTasks(userID))!;
+
     isDataLoaded = true;
     notifyListeners();
   }
 
-  void addTask(Task task) async {
+  void _flushData() {
+    isDataLoaded = false;
+    activeTasks.clear();
+    activeLists.clear();
+    allTaskListData.clear();
+    allListsCombined = TaskListData();
+    activeRepeatingTasks = {};
+  }
+
+  Future<void> addRepeatingTask(Task task, RepeatCycle repeatCycle,
+      RepeatFrequency? repeatFrequency) async {
+    RepeatingTask repeatingTask = RepeatingTask(
+      repeatingTaskId: task.taskID,
+      repeatingTaskName: task.taskName,
+      repeatCycle: repeatCycle,
+      deadlineDate: task.deadlineDate!,
+      repeatFrequency: repeatFrequency,
+      deadlineTime: task.deadlineTime,
+      taskListID: task.taskListID,
+      isActive: true,
+      currentTaskDeadlineDate: task.deadlineDate!,
+      currentActiveTaskID: "dummyID",
+    );
+    var result = await FirestoreDB.insertRepeatingTask(repeatingTask, userID);
+    if (result == null) {
+      print("could not insert into database");
+    } else {
+      Task generatedTask = result["generatedTask"];
+      repeatingTask = result["repeatingTask"];
+      activeTasks.add(generatedTask);
+      allTaskListData[generatedTask.taskListID]!.insertTask(generatedTask);
+      allListsCombined.insertTask(task);
+    }
+    notifyListeners();
+  }
+
+  Future<void> addTask(Task task) async {
     var taskAsMap = task.toFirestoreMap(userID);
-    taskAsMap.remove("taskID");
     String? id = await FirestoreDB.insertTask(taskAsMap);
     if (id == null) {
       print("could not insert into database");
     } else {
       task.taskID = id;
       activeTasks.add(task);
-      aggregatedTasksMap[task.taskListID]!.insertTask(task);
+      allTaskListData[task.taskListID]!.insertTask(task);
       allListsCombined.insertTask(task);
-      notifyListeners();
     }
+
+    notifyListeners();
   }
 
   int? _findTaskIndexInActiveTaskList(Task task) {
@@ -249,10 +265,10 @@ class TodosData extends ChangeNotifier {
       activeTasks[index!] = task;
       //print(originalTask.deadlineDate);
       //crucial to remove originalTask taskListID, modified task task list ID may be different
-      aggregatedTasksMap[originalTask.taskListID]!
+      allTaskListData[originalTask.taskListID]!
           .deleteOriginalTask(originalTask);
       allListsCombined.deleteOriginalTask(originalTask);
-      aggregatedTasksMap[task.taskListID]!.insertTask(task);
+      allTaskListData[task.taskListID]!.insertTask(task);
       allListsCombined.insertTask(task);
     }
     notifyListeners();
@@ -270,7 +286,7 @@ class TodosData extends ChangeNotifier {
       activeTasks.removeAt(index!);
       //print(originalTask.deadlineDate);
       //crucial to remove originalTask taskListID, modified task task list ID may be different
-      aggregatedTasksMap[originalTask.taskListID]!
+      allTaskListData[originalTask.taskListID]!
           .deleteOriginalTask(originalTask);
       allListsCombined.deleteOriginalTask(originalTask);
       notifyListeners();
@@ -278,38 +294,65 @@ class TodosData extends ChangeNotifier {
   }
 
   void finishTask(Task task) async {
-    task.isFinished = true;
+    if (task.isRepeating == false)
+      _finishNonRepeatingTask(task);
+    else
+      _finishRepeatingTask(task);
+  }
+
+  void _finishNonRepeatingTask(Task task) async {
     FirestoreDB.updateTask(task, userID);
+    task.isFinished = true;
     var index = _findTaskIndexInActiveTaskList(task);
     activeTasks.removeAt(index!);
-    aggregatedTasksMap[task.taskListID]!.deleteOriginalTask(task);
+    allTaskListData[task.taskListID]!.deleteOriginalTask(task);
     allListsCombined.deleteOriginalTask(task);
     notifyListeners();
+  }
+
+  void _finishRepeatingTask(Task task) async {
+    Task nextTask = activeRepeatingTasks[task.parentTaskID]!.generateNextTask();
+    var result = await FirestoreDB.finishRepeatingTask(
+        task, nextTask, activeRepeatingTasks[task.parentTaskID]!, userID);
+    if (result != null) {
+      task.isFinished = true;
+      var index = _findTaskIndexInActiveTaskList(task);
+      activeTasks.removeAt(index!);
+      allTaskListData[task.taskListID]!.deleteOriginalTask(task);
+      allListsCombined.deleteOriginalTask(task);
+      activeRepeatingTasks[task.parentTaskID!] = result["repeatingTask"];
+      Task generatedTask = result["generatedTask"];
+      activeTasks.add(generatedTask);
+      allTaskListData[task.taskListID]!.insertTask(generatedTask);
+      allListsCombined.insertTask(generatedTask);
+      notifyListeners();
+    } else {
+      print("error in finishing task");
+    }
   }
 
   void addList(String listName) async {
     TaskList taskList =
         TaskList(isActive: true, listID: "-1", listName: listName);
     var taskListAsMap = taskList.toFirestoreMap(userID);
-    taskListAsMap.remove("listID");
     String? id = await FirestoreDB.insertList(taskListAsMap);
     if (id == null) {
       print("could not insert list into database");
     } else {
       taskList.listID = id;
       activeLists[id] = taskList;
-      aggregatedTasksMap[id] = AggregatedTasks();
+      allTaskListData[id] = TaskListData();
       notifyListeners();
     }
   }
 
   List<Task> getSection(
       {required Section section, required String selectedListID}) {
-    AggregatedTasks selectedAggregatedTasks;
+    TaskListData selectedAggregatedTasks;
     if (selectedListID == allListName)
       selectedAggregatedTasks = allListsCombined;
     else if (selectedListID == selectedListID)
-      selectedAggregatedTasks = aggregatedTasksMap[selectedListID]!;
+      selectedAggregatedTasks = allTaskListData[selectedListID]!;
     else {
       print("no such list. Wrong input parameter");
       return [];

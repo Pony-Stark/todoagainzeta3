@@ -13,6 +13,33 @@ class FirestoreDB {
     }
   }
 
+  static Future<Map<String, dynamic>?> insertRepeatingTask(
+      RepeatingTask repeatingTask, String userID) async {
+    try {
+      Task generatedTask = repeatingTask.generateFirstTask();
+      var repeatingTaskDoc = instance.collection('RepeatingTask').doc();
+      generatedTask.parentTaskID = repeatingTaskDoc.id;
+      repeatingTask.repeatingTaskId = repeatingTaskDoc.id;
+
+      var taskDoc = instance.collection('Task').doc();
+      repeatingTask.currentActiveTaskID = taskDoc.id;
+      generatedTask.taskID = taskDoc.id;
+
+      Map<String, dynamic> repeatingTaskAsMap =
+          repeatingTask.toFirestoreMap(userID);
+      Map<String, dynamic> generatedTaskAsMap =
+          generatedTask.toFirestoreMap(userID);
+      await instance.runTransaction((transaction) async {
+        transaction.set(repeatingTaskDoc, repeatingTaskAsMap);
+        transaction.set(taskDoc, generatedTaskAsMap);
+      });
+      return {"repeatingTask": repeatingTask, "generatedTask": generatedTask};
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
   static Future<List<Task>?> getAllPendingTasks(String uid) async {
     try {
       var readData = await instance
@@ -76,6 +103,55 @@ class FirestoreDB {
         result.add(TaskList.fromFirestoreMap(doc.data(), doc.id));
       }
       return result;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
+  static Future<Map<String, RepeatingTask>?> getAllActiveRepeatingTasks(
+      String uid) async {
+    try {
+      var readData = await instance
+          .collection("RepeatingTask")
+          .where("uid", isEqualTo: uid)
+          .where("isActive", isEqualTo: 1)
+          .get();
+      Map<String, RepeatingTask> result = {};
+      for (var doc in readData.docs) {
+        result[doc.id] = RepeatingTask.fromFirestoreMap(doc.data(), doc.id);
+      }
+      return result;
+    } catch (e) {
+      print(e);
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> finishRepeatingTask(Task currentTask,
+      Task nextTask, RepeatingTask repeatingTask, String uid) async {
+    try {
+      var nextTaskDoc = instance.collection('Task').doc();
+      nextTask.taskID = nextTaskDoc.id;
+      var nextTaskAsMap = nextTask.toFirestoreMap(uid);
+      Map<String, dynamic> repeatingTaskUpdatedValues = {};
+      repeatingTaskUpdatedValues["currentTaskDeadlineDate"] =
+          nextTask.deadlineDate!.millisecondsSinceEpoch;
+      repeatingTaskUpdatedValues["currentActiveTaskID"] = nextTaskDoc.id;
+
+      await instance.runTransaction((transaction) async {
+        transaction.update(
+            instance
+                .collection('RepeatingTask')
+                .doc(repeatingTask.repeatingTaskId),
+            repeatingTaskUpdatedValues);
+        transaction.update(instance.collection('Task').doc(currentTask.taskID),
+            {"isFinished": 1});
+        transaction.set(nextTaskDoc, nextTaskAsMap);
+      });
+      repeatingTask.currentTaskDeadlineDate = nextTask.deadlineDate!;
+      repeatingTask.currentActiveTaskID = nextTaskDoc.id;
+      return {"repeatingTask": repeatingTask, "generatedTask": nextTask};
     } catch (e) {
       print(e);
       return null;

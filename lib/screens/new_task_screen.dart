@@ -90,7 +90,12 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   }
 
   void saveNewTask() async {
-    Provider.of<TodosData>(context, listen: false).addTask(task);
+    var todosData = Provider.of<TodosData>(context, listen: false);
+    if (chosenRepeatCycle == null)
+      await todosData.addTask(task);
+    else
+      await todosData.addRepeatingTask(task, chosenRepeatCycle!,
+          (chosenRepeatCycle!) == RepeatCycle.other ? repeatFrequency : null);
     Navigator.pop(context);
   }
 
@@ -296,7 +301,11 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                   DropdownButton<int>(
                     dropdownColor: Theme.of(context).colorScheme.onSecondary,
                     iconEnabledColor: Theme.of(context).colorScheme.secondary,
-                    items: [2, 3, 4, 5, 6, 7, 8, 9, 10]
+                    items: () {
+                      List<int> result = [];
+                      for (var i = 1; i <= 100; i++) result.add(i);
+                      return result;
+                    }()
                         .map((int t) => DropdownMenuItem<int>(
                               child: Text(
                                 t.toString(),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 //used to display in UI
@@ -58,15 +59,12 @@ class Task {
         this.deadlineTime = task.deadlineTime;
   String taskID;
   String taskListID;
-  int? parentTaskID; //used for repeated task instances only
+  String? parentTaskID; //used for repeated task instances only
   String taskName;
   DateTime? deadlineDate;
   TimeOfDay? deadlineTime;
   bool isFinished;
   bool isRepeating;
-  void finishTask() {
-    isFinished = true;
-  }
 
   Map<String, dynamic> toMap() {
     Map<String, dynamic> taskAsMap = {
@@ -124,7 +122,7 @@ class Task {
     Map<String, dynamic> taskAsMap = {
       "uid": uid,
       "taskListID": taskListID,
-      "parentTaskID": null,
+      "parentTaskID": parentTaskID,
       "taskName": taskName,
       "deadlineDate":
           deadlineDate == null ? null : deadlineDate!.millisecondsSinceEpoch,
@@ -134,6 +132,28 @@ class Task {
       "isRepeating": isRepeating == true ? 1 : 0,
     };
     return (taskAsMap);
+  }
+
+  static int deadlineComparator(Task a, Task b) {
+    if (a.deadlineDate == null)
+      return 1;
+    else if (b.deadlineDate == null)
+      return -1;
+    else if (a.deadlineDate!.isAfter(b.deadlineDate!))
+      return 1;
+    else if (b.deadlineDate!.isAfter(a.deadlineDate!)) return -1;
+    if (a.deadlineTime == null)
+      return 1;
+    else if (b.deadlineTime == null)
+      return -1;
+    else if (intFromTimeOfDay(a.deadlineTime!) >
+        intFromTimeOfDay(a.deadlineTime!))
+      return 1;
+    else if (intFromTimeOfDay(a.deadlineTime!) <
+        intFromTimeOfDay(a.deadlineTime!))
+      return -1;
+    else
+      return 0;
   }
 }
 
@@ -154,14 +174,139 @@ class RepeatingTask {
     this.repeatFrequency,
     this.deadlineTime,
     required this.taskListID,
+    required this.isActive,
+    required this.currentTaskDeadlineDate, //used to generate new task.
+    required this.currentActiveTaskID,
   });
-  int taskListID;
-  int repeatingTaskId;
+  String taskListID;
+  String repeatingTaskId;
   String repeatingTaskName;
   RepeatCycle repeatCycle;
   RepeatFrequency? repeatFrequency;
   DateTime deadlineDate;
-  DateTime? deadlineTime;
+  TimeOfDay? deadlineTime;
+  bool isActive;
+  DateTime currentTaskDeadlineDate;
+  String currentActiveTaskID;
+
+  Map<String, dynamic> toFirestoreMap(String uid) {
+    return {
+      "uid": uid,
+      "taskListID": taskListID,
+      "repeatingTaskName": repeatingTaskName,
+      "repeatCycle": describeEnum(repeatCycle),
+      "repeatFrequencyNum":
+          repeatFrequency == null ? null : repeatFrequency!.num,
+      "repeatFrequencyTenure": repeatFrequency == null
+          ? null
+          : describeEnum(repeatFrequency!.tenure),
+      "deadlineDate": deadlineDate.millisecondsSinceEpoch,
+      "deadlineTime":
+          deadlineTime == null ? null : intFromTimeOfDay(deadlineTime!),
+      "isActive": isActive == true ? 1 : 0,
+      "currentTaskDeadlineDate": deadlineDate.millisecondsSinceEpoch,
+      "currentActiveTaskID": currentActiveTaskID,
+    };
+  }
+
+  static RepeatingTask fromFirestoreMap(
+      Map<String, dynamic> repeatingTaskAsMap, String repeatingTaskId) {
+    RepeatCycle repeatCycle = RepeatCycle.values.firstWhere(
+        (e) => describeEnum(e) == repeatingTaskAsMap["repeatCycle"]);
+    RepeatFrequency? repeatFrequency = null;
+
+    if (repeatCycle == RepeatCycle.other) {
+      repeatFrequency = RepeatFrequency(
+          num: repeatingTaskAsMap["repeatFrequencyNum"],
+          tenure: Tenure.values.firstWhere((e) =>
+              describeEnum(e) == repeatingTaskAsMap["repeatFrequencyTenure"]));
+    }
+
+    return RepeatingTask(
+        taskListID: repeatingTaskAsMap["taskListID"],
+        repeatingTaskName: repeatingTaskAsMap["repeatingTaskName"],
+        repeatingTaskId: repeatingTaskId,
+        repeatCycle: repeatCycle,
+        deadlineDate: DateTime.fromMillisecondsSinceEpoch(
+            repeatingTaskAsMap["deadlineDate"]),
+        deadlineTime: repeatingTaskAsMap["deadlineTime"] == null
+            ? null
+            : timeOfDayFromInt(repeatingTaskAsMap["deadlineTime"]),
+        repeatFrequency: repeatFrequency,
+        isActive: repeatingTaskAsMap["isActive"] == 1 ? true : false,
+        currentTaskDeadlineDate: DateTime.fromMillisecondsSinceEpoch(
+            repeatingTaskAsMap["deadlineDate"]),
+        currentActiveTaskID: repeatingTaskAsMap["currentActiveTaskID"]);
+  }
+
+  DateTime findNextTaskDeadline() {
+    RepeatFrequency tempRepeatFrequency;
+    if (repeatCycle == RepeatCycle.other)
+      tempRepeatFrequency = repeatFrequency!;
+    else if (repeatCycle == RepeatCycle.onceADay)
+      tempRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.days);
+    else if (repeatCycle == RepeatCycle.onceAWeek)
+      tempRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.weeks);
+    else if (repeatCycle == RepeatCycle.onceAMonth)
+      tempRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.months);
+    else if (repeatCycle == RepeatCycle.onceAYear)
+      tempRepeatFrequency = RepeatFrequency(num: 1, tenure: Tenure.years);
+    else {
+      assert(repeatCycle == RepeatCycle.onceADayMonFri);
+      if (currentTaskDeadlineDate.weekday == DateTime.friday)
+        return currentTaskDeadlineDate.add(Duration(days: 3));
+      else
+        return currentTaskDeadlineDate.add(Duration(days: 1));
+    }
+    if (tempRepeatFrequency.tenure == Tenure.days)
+      return currentTaskDeadlineDate
+          .add(Duration(days: tempRepeatFrequency.num));
+    if (tempRepeatFrequency.tenure == Tenure.weeks)
+      return currentTaskDeadlineDate
+          .add(Duration(days: 7 * (tempRepeatFrequency.num)));
+    DateTime nextDeadline;
+    if (tempRepeatFrequency.tenure == Tenure.months) {
+      nextDeadline = DateTime(
+          currentTaskDeadlineDate.year,
+          currentTaskDeadlineDate.month + tempRepeatFrequency.num,
+          currentTaskDeadlineDate.day);
+      if (nextDeadline.month - currentTaskDeadlineDate.month !=
+          tempRepeatFrequency.num)
+        nextDeadline = DateTime(nextDeadline.year, nextDeadline.month, 0);
+      return nextDeadline;
+    }
+    if (tempRepeatFrequency.tenure == Tenure.years) {
+      nextDeadline = DateTime(
+          currentTaskDeadlineDate.year + tempRepeatFrequency.num,
+          currentTaskDeadlineDate.month,
+          currentTaskDeadlineDate.day);
+      if (nextDeadline.month != currentTaskDeadlineDate.month)
+        nextDeadline = DateTime(nextDeadline.year, nextDeadline.month, 0);
+      return nextDeadline;
+    }
+    assert(0 == 1, "We should not reach here");
+    return DateTime.now();
+  }
+
+  Task generateNextTask() {
+    Task task = generateFirstTask();
+    task.parentTaskID = repeatingTaskId;
+    task.deadlineDate = findNextTaskDeadline();
+    return task;
+  }
+
+  Task generateFirstTask() {
+    return Task(
+      taskName: repeatingTaskName,
+      taskListID: taskListID,
+      taskID: "dummy",
+      isFinished: false,
+      isRepeating: true,
+      parentTaskID: "dummy",
+      deadlineDate: deadlineDate,
+      deadlineTime: deadlineTime,
+    );
+  }
 }
 
 class TaskList {
