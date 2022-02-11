@@ -27,7 +27,12 @@ class _MyHomePageState extends State<MyHomePage> {
     List<Widget> widgets = [
       Text(
         sectionToUIString(section),
-        style: Theme.of(context).textTheme.subtitle1,
+        style: section != Section.overdue
+            ? Theme.of(context).textTheme.subtitle1
+            : Theme.of(context)
+                .textTheme
+                .subtitle1!
+                .copyWith(color: Colors.red),
       ),
       SizedBox(height: 5),
     ];
@@ -35,6 +40,7 @@ class _MyHomePageState extends State<MyHomePage> {
       widgets.add(ActivityCard(
         task: task,
         listName: todosData.activeLists[task.taskListID]!.listName,
+        isOverdue: section == Section.overdue,
       ));
     }
     widgets.add(SizedBox(height: 20));
@@ -138,11 +144,13 @@ class ActivityCard extends StatelessWidget {
   const ActivityCard({
     required this.task,
     required this.listName,
+    this.isOverdue = false,
     Key? key,
   }) : super(key: key);
 
   final Task task;
   final String listName;
+  final bool isOverdue;
 
   String deadlineString(BuildContext context) {
     String deadlineDate = "";
@@ -158,6 +166,13 @@ class ActivityCard extends StatelessWidget {
         return deadlineDate;
       }
     }
+  }
+
+  Color deadlineColor(context) {
+    if (isOverdue)
+      return Colors.red;
+    else
+      return Theme.of(context).textTheme.bodyText1!.color!;
   }
 
   @override
@@ -183,8 +198,26 @@ class ActivityCard extends StatelessWidget {
                   data: ThemeData(unselectedWidgetColor: Colors.white),
                   child: Checkbox(
                     onChanged: (value) {
-                      Provider.of<TodosData>(context, listen: false)
-                          .finishTask(task);
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text("Are you sure you want to finish?"),
+                          actions: [
+                            TextButton(
+                                child: Text("YES"),
+                                onPressed: () {
+                                  Provider.of<TodosData>(context, listen: false)
+                                      .finishTask(task);
+                                  Navigator.pop(context);
+                                }),
+                            TextButton(
+                                child: Text("NO"),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                }),
+                          ],
+                        ),
+                      );
                     },
                     value: false,
                   ),
@@ -204,9 +237,26 @@ class ActivityCard extends StatelessWidget {
                   ...(task.deadlineDate == null
                       ? []
                       : [
-                          Text(
-                            deadlineString(context),
-                            style: Theme.of(context).textTheme.bodyText1,
+                          Row(
+                            children: [
+                              Text(
+                                deadlineString(context),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyText1!
+                                    .copyWith(color: deadlineColor(context)),
+                              ),
+                              SizedBox(
+                                width: 10,
+                              ),
+                              ...(task.isRepeating
+                                  ? [
+                                      Icon(Icons.repeat,
+                                          color: deadlineColor(context),
+                                          size: 20)
+                                    ]
+                                  : []),
+                            ],
                           ),
                         ]),
                   Text(listName),

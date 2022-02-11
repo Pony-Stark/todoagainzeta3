@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'task.dart';
-import 'sqlite.dart';
 import 'firestore_wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -301,13 +300,16 @@ class TodosData extends ChangeNotifier {
   }
 
   void _finishNonRepeatingTask(Task task) async {
-    FirestoreDB.updateTask(task, userID);
     task.isFinished = true;
-    var index = _findTaskIndexInActiveTaskList(task);
-    activeTasks.removeAt(index!);
-    allTaskListData[task.taskListID]!.deleteOriginalTask(task);
-    allListsCombined.deleteOriginalTask(task);
-    notifyListeners();
+    bool success = await FirestoreDB.updateTask(task, userID);
+    if (success) {
+      var index = _findTaskIndexInActiveTaskList(task);
+      activeTasks.removeAt(index!);
+      allTaskListData[task.taskListID]!.deleteOriginalTask(task);
+      allListsCombined.deleteOriginalTask(task);
+      notifyListeners();
+    } else
+      task.isFinished = false;
   }
 
   void _finishRepeatingTask(Task task) async {
