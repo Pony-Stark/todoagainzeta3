@@ -10,6 +10,16 @@ import "task.dart";
 import "todos_data.dart";
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    // Replace with actual values
+    options: FirebaseOptions(
+      apiKey: "AIzaSyBeedisbomDk60ehsSb7whM2JsZhq5F0lg",
+      appId: "1:301853527299:web:a0291b63d8bbef9f016d36",
+      messagingSenderId: "301853527299",
+      projectId: "todos-6bdb5",
+    ),
+  );
   runApp(const MyApp());
 }
 

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../task.dart';
 import 'package:provider/provider.dart';
 import "../todos_data.dart";
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class NewTaskScreen extends StatefulWidget {
   NewTaskScreen({Key? key, this.task}) : super(key: key);
@@ -168,7 +169,25 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                     },
                   ),
                 ),
-                CustomIconButton(iconData: Icons.mic, onPressed: () {}),
+                CustomIconButton(
+                    iconData: Icons.mic,
+                    onPressed: () async {
+                      stt.SpeechToText speech = stt.SpeechToText();
+                      bool available = await speech.initialize();
+                      print(available);
+                      if (available) {
+                        print("haha");
+                        speech.listen(
+                          onResult: (result) {
+                            print(result);
+                          },
+                          listenFor: Duration(seconds: 5),
+                        );
+                      } else {
+                        print(
+                            "The user has denied the use of speech recognition.");
+                      }
+                    }),
               ],
             ),
             SizedBox(
